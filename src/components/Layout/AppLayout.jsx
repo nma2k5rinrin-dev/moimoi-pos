@@ -12,7 +12,6 @@ export function AppLayout() {
     const currentUser = useStore(state => state.currentUser);
     const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
     const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin']);
-    const currentUser = useStore(state => state.currentUser);
     const logout = useStore(state => state.logout);
     const updateUserAvatar = useStore(state => state.updateUserAvatar);
     const showToast = useStore(state => state.showToast);

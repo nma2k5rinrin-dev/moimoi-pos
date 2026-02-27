@@ -17,7 +17,6 @@ const STATUSES = [
 
 export default function KitchenPage() {
     const { orders, currentUser, updateOrderStatus, updateOrderItemStatus, updateOrderPaymentStatus, showToast } = useStore();
-    const currentUser = useStore(state => state.currentUser);
     const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
     const [activeTab, setActiveTab] = useState('all');
 

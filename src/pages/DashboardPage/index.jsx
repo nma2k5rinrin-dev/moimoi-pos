@@ -49,7 +49,6 @@ export default function DashboardPage() {
     const orders = useStore(state => state.orders);
     const currentUser = useStore(state => state.currentUser);
     const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
-    const currentUser = useStore(state => state.currentUser);
     const USERS = useStore(state => state.USERS);
     const [timeRange, setTimeRange] = useState('today');
     const [customDate, setCustomDate] = useState(new Date().toISOString().split('T')[0]);

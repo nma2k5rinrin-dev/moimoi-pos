@@ -26,7 +26,6 @@ export function MobileCart() {
     const addNote = useStore(state => state.addNote);
     const orders = useStore(state => state.orders);
     const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin']);
-    const currentUser = useStore(state => state.currentUser);
 
     const [editingNoteId, setEditingNoteId] = useState(null);
     const [showCheckoutModal, setShowCheckoutModal] = useState(false);
