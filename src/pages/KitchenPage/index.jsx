@@ -17,7 +17,8 @@ const STATUSES = [
 
 export default function KitchenPage() {
     const { orders, currentUser, updateOrderStatus, updateOrderItemStatus, updateOrderPaymentStatus, showToast } = useStore();
-    const storeId = useStore(state => state.getStoreId());
+    const currentUser = useStore(state => state.currentUser);
+    const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
     const [activeTab, setActiveTab] = useState('all');
 
     const visibleOrders = React.useMemo(() => {

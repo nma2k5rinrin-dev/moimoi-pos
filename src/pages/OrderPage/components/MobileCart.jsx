@@ -20,7 +20,8 @@ export function MobileCart() {
     const setSelectedTable = useStore(state => state.setSelectedTable);
     const checkoutOrder = useStore(state => state.checkoutOrder);
     const showToast = useStore(state => state.showToast);
-    const storeId = useStore(state => state.getStoreId());
+    const currentUser = useStore(state => state.currentUser);
+    const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
     const tables = useStore(state => state.storeTables[storeId] || []);
     const addNote = useStore(state => state.addNote);
     const orders = useStore(state => state.orders);

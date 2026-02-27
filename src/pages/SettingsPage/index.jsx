@@ -39,7 +39,8 @@ const SETTING_MENUS = [
 ];
 
 function TableManagement({ onBack }) {
-    const storeId = useStore(state => state.getStoreId());
+    const currentUser = useStore(state => state.currentUser);
+    const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
     const tables = useStore(state => state.storeTables[storeId] || []);
     const addTable = useStore(state => state.addTable);
     const removeTable = useStore(state => state.removeTable);

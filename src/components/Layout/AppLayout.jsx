@@ -9,7 +9,8 @@ import { ConfirmModal } from "../ConfirmModal";
 
 export function AppLayout() {
     const toast = useStore(state => state.toast);
-    const storeId = useStore(state => state.getStoreId());
+    const currentUser = useStore(state => state.currentUser);
+    const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
     const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin']);
     const currentUser = useStore(state => state.currentUser);
     const logout = useStore(state => state.logout);

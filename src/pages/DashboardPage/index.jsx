@@ -47,7 +47,8 @@ const TIME_RANGES = [
 
 export default function DashboardPage() {
     const orders = useStore(state => state.orders);
-    const storeId = useStore(state => state.getStoreId());
+    const currentUser = useStore(state => state.currentUser);
+    const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
     const currentUser = useStore(state => state.currentUser);
     const USERS = useStore(state => state.USERS);
     const [timeRange, setTimeRange] = useState('today');

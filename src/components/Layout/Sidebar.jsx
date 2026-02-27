@@ -27,7 +27,8 @@ export function Sidebar() {
     const location = useLocation();
     const navigate = useNavigate();
     const currentUser = useStore(state => state.currentUser);
-    const storeId = useStore(state => state.getStoreId());
+    const currentUser = useStore(state => state.currentUser);
+    const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
     const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin']);
     const logout = useStore(state => state.logout);
     const showToast = useStore(state => state.showToast);
