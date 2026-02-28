@@ -355,39 +355,49 @@ function UserManagement({ onBack }) {
                             const allStaffs = displayUsers.filter(u => u.role === 'staff');
 
                             if (currentUser?.role === 'sadmin') {
-                                return sadmins.map(sadmin => (
-                                    <div key={sadmin.username} className="flex flex-col gap-3">
-                                        {/* Render Cấp 1: Super Admin */}
-                                        {renderCard(sadmin)}
+                                return sadmins.map(sadmin => {
+                                    const mySadminStaffs = allStaffs.filter(u => u.createdBy === sadmin.username);
+                                    return (
+                                        <div key={sadmin.username} className="flex flex-col gap-3">
+                                            {/* Render Cấp 1: Super Admin */}
+                                            {renderCard(sadmin)}
 
-                                        {admins.length > 0 && (
-                                            <div className="ml-6 md:ml-8 pl-4 border-l-2 border-violet-200 flex flex-col gap-3 relative">
-                                                {admins.map(admin => {
-                                                    const myStaffs = allStaffs.filter(u => u.createdBy === admin.username || (!u.createdBy && admin.role === 'admin'));
-                                                    return (
-                                                        <div key={admin.username} className="relative flex flex-col gap-3">
+                                            {(admins.length > 0 || mySadminStaffs.length > 0) && (
+                                                <div className="ml-6 md:ml-8 pl-4 border-l-2 border-violet-200 flex flex-col gap-3 relative">
+                                                    {mySadminStaffs.map(staff => (
+                                                        <div key={staff.username} className="relative flex flex-col gap-3">
                                                             <span className="absolute -left-4 top-10 w-4 border-t-2 border-violet-200"></span>
-                                                            {/* Render Cấp 2: Admin */}
-                                                            {renderCard(admin, true, sadmin)}
-
-                                                            {myStaffs.length > 0 && (
-                                                                <div className="ml-6 md:ml-8 pl-4 border-l-2 border-slate-200 flex flex-col gap-3 relative">
-                                                                    {myStaffs.map(staff => (
-                                                                        <div key={staff.username} className="relative">
-                                                                            <span className="absolute -left-4 top-10 w-4 border-t-2 border-slate-200"></span>
-                                                                            {/* Render Cấp 3: Staff */}
-                                                                            {renderCard(staff, true, admin)}
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
+                                                            {/* Render Cấp 1.5: Sadmin's direct staffs */}
+                                                            {renderCard(staff, true, sadmin)}
                                                         </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                ));
+                                                    ))}
+                                                    {admins.map(admin => {
+                                                        const myStaffs = allStaffs.filter(u => u.createdBy === admin.username || (!u.createdBy && admin.role === 'admin'));
+                                                        return (
+                                                            <div key={admin.username} className="relative flex flex-col gap-3">
+                                                                <span className="absolute -left-4 top-10 w-4 border-t-2 border-violet-200"></span>
+                                                                {/* Render Cấp 2: Admin */}
+                                                                {renderCard(admin, true, sadmin)}
+
+                                                                {myStaffs.length > 0 && (
+                                                                    <div className="ml-6 md:ml-8 pl-4 border-l-2 border-slate-200 flex flex-col gap-3 relative">
+                                                                        {myStaffs.map(staff => (
+                                                                            <div key={staff.username} className="relative">
+                                                                                <span className="absolute -left-4 top-10 w-4 border-t-2 border-slate-200"></span>
+                                                                                {/* Render Cấp 3: Staff */}
+                                                                                {renderCard(staff, true, admin)}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                });
                             } else {
                                 // Fallback cho màn hình của Admin nhìn xuống Staff
                                 return admins.filter(u => u.username === currentUser?.username).map(admin => {
