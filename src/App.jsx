@@ -10,9 +10,14 @@ import SettingsPage from './pages/SettingsPage';
 import AuthPage from './pages/AuthPage';
 import { useStore } from './store/useStore';
 
-const PrivateRoute = ({ children }) => {
+const PrivateRoute = ({ children, allowedRoles }) => {
   const currentUser = useStore(state => state.currentUser);
   if (!currentUser) return <Navigate to="/login" replace />;
+
+  if (allowedRoles && !allowedRoles.includes(currentUser.role)) {
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 };
 
@@ -24,8 +29,8 @@ function App() {
         <Route path="/" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
           <Route index element={<OrderPage />} />
           <Route path="kitchen" element={<KitchenPage />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="settings" element={<SettingsPage />} />
+          <Route path="dashboard" element={<PrivateRoute allowedRoles={['admin', 'sadmin']}><DashboardPage /></PrivateRoute>} />
+          <Route path="settings" element={<PrivateRoute allowedRoles={['admin', 'sadmin']}><SettingsPage /></PrivateRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
