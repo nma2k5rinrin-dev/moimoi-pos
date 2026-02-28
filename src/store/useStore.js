@@ -120,11 +120,22 @@ export const useStore = create(
                 const updatedUsers = state.USERS.map(u =>
                     u.username === username ? { ...u, ...updatedData } : u
                 );
-                state.showToast('Cập nhật tài khoản thành công!');
+
+                // Nếu đổi username cho Staff, cập nhật lại createdBy trong các Order cũ
+                let updatedOrders = state.orders;
+                const newUsername = updatedData.username;
+                if (newUsername && newUsername !== username) {
+                    updatedOrders = state.orders.map(o =>
+                        o.createdBy === username ? { ...o, createdBy: newUsername } : o
+                    );
+                }
+
+                state.showToast('Cập nhật thông tin thành công!');
                 // Nếu đang update chính mình, cập nhật luôn session currentUser
                 const isSelf = state.currentUser?.username === username;
                 return {
                     USERS: updatedUsers,
+                    orders: updatedOrders,
                     currentUser: isSelf ? { ...state.currentUser, ...updatedData } : state.currentUser
                 };
             }),

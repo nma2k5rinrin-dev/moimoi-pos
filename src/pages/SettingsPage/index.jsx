@@ -136,13 +136,29 @@ function UserManagement({ onBack }) {
             delete payload.password;
         }
 
+        if (payload.username && payload.username !== editingUsername) {
+            const existing = USERS.find(u => u.username === payload.username);
+            if (existing) {
+                showToast('Tên đăng nhập đã tồn tại!', 'error');
+                return;
+            }
+        }
+
         updateUser(editingUsername, payload);
         setEditingUsername(null);
     };
 
     const startEditing = (user) => {
         setEditingUsername(user.username);
-        setEditForm({ fullname: user.fullname || '', phone: user.phone || '', password: user.pass, expiresAt: user.expiresAt, isPremium: user.isPremium });
+        setEditForm({
+            username: user.username,
+            fullname: user.fullname || '',
+            phone: user.phone || '',
+            password: user.pass,
+            expiresAt: user.expiresAt,
+            isPremium: user.isPremium,
+            createdBy: user.createdBy || ''
+        });
     };
 
     const getStats = (username) => {
@@ -326,18 +342,35 @@ function UserManagement({ onBack }) {
                                                 </button>
                                                 <h5 className="font-semibold text-sm text-slate-800">Cập nhật tài khoản</h5>
                                                 <div className="grid grid-cols-1 gap-3">
+                                                    {user.role === 'staff' && (
+                                                        <div className="space-y-1">
+                                                            <label className="text-xs font-semibold text-slate-700 block">Tên đăng nhập mới</label>
+                                                            <input required type="text" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-emerald-500 transition-all text-sm font-medium" placeholder="VD: nhanvien2" value={editForm.username || ''} onChange={e => setEditForm(prev => ({ ...prev, username: e.target.value.toLowerCase().replace(/\s/g, '') }))} />
+                                                        </div>
+                                                    )}
                                                     <div className="space-y-1">
                                                         <label className="text-xs font-semibold text-slate-700 block">Mật khẩu (Hiện tại hoặc Mới)</label>
-                                                        <input required type="password" minLength={1} className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-emerald-500 transition-all text-sm font-medium" placeholder="Nhập để xác nhận/thay đổi" value={editForm.password} onChange={e => setEditForm(prev => ({ ...prev, password: e.target.value }))} />
+                                                        <input required type="password" minLength={1} className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-emerald-500 transition-all text-sm font-medium" placeholder="Nhập để xác nhận/thay đổi" value={editForm.password || ''} onChange={e => setEditForm(prev => ({ ...prev, password: e.target.value }))} />
                                                     </div>
                                                     <div className="space-y-1">
                                                         <label className="text-xs font-semibold text-slate-700 block">Họ và tên hiển thị</label>
-                                                        <input className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-emerald-500 transition-all text-sm font-medium" placeholder="Tên để in order" value={editForm.fullname} onChange={e => setEditForm(prev => ({ ...prev, fullname: e.target.value }))} />
+                                                        <input className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-emerald-500 transition-all text-sm font-medium" placeholder="Tên để in order" value={editForm.fullname || ''} onChange={e => setEditForm(prev => ({ ...prev, fullname: e.target.value }))} />
                                                     </div>
                                                     <div className="space-y-1">
                                                         <label className="text-xs font-semibold text-slate-700 block">Số điện thoại liên hệ</label>
-                                                        <input className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-emerald-500 transition-all text-sm font-medium" placeholder="SDT Cá nhân" value={editForm.phone} onChange={e => setEditForm(prev => ({ ...prev, phone: e.target.value }))} />
+                                                        <input className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-emerald-500 transition-all text-sm font-medium" placeholder="SDT Cá nhân" value={editForm.phone || ''} onChange={e => setEditForm(prev => ({ ...prev, phone: e.target.value }))} />
                                                     </div>
+                                                    {user.role === 'staff' && currentUser?.role === 'sadmin' && (
+                                                        <div className="space-y-1">
+                                                            <label className="text-xs font-semibold text-slate-700 block">Thuộc Cửa Hàng Quản Lý</label>
+                                                            <select className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-emerald-500 transition-all text-sm font-medium" value={editForm.createdBy || ''} onChange={e => setEditForm(prev => ({ ...prev, createdBy: e.target.value }))}>
+                                                                <option value="">Hệ thống Gốc (Sadmin)</option>
+                                                                {USERS.filter(u => u.role === 'admin').map(admin => (
+                                                                    <option key={admin.username} value={admin.username}>{admin.fullname || admin.username}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    )}
                                                     {user.role === 'admin' && currentUser?.role === 'sadmin' && (
                                                         <>
                                                             <div className="space-y-1">
@@ -353,7 +386,8 @@ function UserManagement({ onBack }) {
                                                         </>
                                                     )}
                                                 </div>
-                                                <div className="flex justify-end mt-1">
+                                                <div className="flex justify-end mt-2 gap-2">
+                                                    <button type="button" onClick={() => setEditingUsername(null)} className="px-4 py-2 bg-slate-100 text-slate-600 text-sm rounded-lg font-bold hover:bg-slate-200 transition-colors active:scale-95">Huỷ thay đổi</button>
                                                     <button type="button" onClick={handleUpdate} className="px-4 py-2 bg-emerald-500 text-white text-sm rounded-lg font-bold hover:bg-emerald-600 transition-colors shadow-md shadow-emerald-500/20 active:scale-95">Lưu thay đổi</button>
                                                 </div>
                                             </form>
