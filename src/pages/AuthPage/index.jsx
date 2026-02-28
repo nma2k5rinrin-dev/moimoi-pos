@@ -21,7 +21,7 @@ export default function AuthPage() {
     const register = useStore(state => state.register);
     const currentUser = useStore(state => state.currentUser);
     const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
-    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin']);
+    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin'] || {});
     const showToast = useStore(state => state.showToast);
     const navigate = useNavigate();
 

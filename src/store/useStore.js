@@ -109,7 +109,7 @@ export const useStore = create(
             // Tự động phân loại dọn dẹp Local Store khi Login (Tránh tràn Memory)
             cleanupStoreData: () => set(state => {
                 const storeId = get().getStoreId();
-                const currentStoreInfo = state.storeInfos[storeId] || state.storeInfos['sadmin'];
+                const currentStoreInfo = state.storeInfos[storeId] || state.storeInfos['sadmin'] || {};
 
                 // Mặc định gói Free lưu 3 ngày, VIP lưu 365 ngày
                 const isPremium = currentStoreInfo?.isPremium || false;
