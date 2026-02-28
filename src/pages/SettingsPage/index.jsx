@@ -548,7 +548,8 @@ export default function SettingsPage() {
     const toggleTheme = useStore(state => state.toggleTheme);
     const showToast = useStore(state => state.showToast);
     const currentUser = useStore(state => state.currentUser);
-    const storeInfo = useStore(state => state.storeInfo);
+    const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
+    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin'] || {});
     const updateStoreInfo = useStore(state => state.updateStoreInfo);
 
     const [generalForm, setGeneralForm] = useState(storeInfo);
