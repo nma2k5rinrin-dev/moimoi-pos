@@ -74,7 +74,7 @@ export const useStore = create(
                     USERS: state.USERS.map(u => u.username === updatedUser.username ? updatedUser : u)
                 };
             }),
-            addStaff: ({ fullname, phone, username, password, role = 'staff' }) => set(state => {
+            addStaff: ({ fullname, phone, username, password, role = 'staff', createdBy }) => set(state => {
                 const isSuperAdmin = state.currentUser?.role === 'sadmin';
                 const currentStaffCount = state.USERS.filter(u => u.role !== 'admin' && u.role !== 'sadmin').length;
                 if (!isSuperAdmin && currentStaffCount >= 1) {
@@ -85,7 +85,7 @@ export const useStore = create(
                     state.showToast('Tên đăng nhập đã tồn tại', 'error');
                     return state;
                 }
-                const newStaff = { username, pass: password, role: role, isPremium: false, fullname, phone, avatar: '', createdBy: state.currentUser?.username };
+                const newStaff = { username, pass: password, role: role, isPremium: false, fullname, phone, avatar: '', createdBy: createdBy || state.currentUser?.username };
                 state.showToast('Thêm tài khoản thành công!');
                 return { USERS: [...state.USERS, newStaff] };
             }),

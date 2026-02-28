@@ -112,7 +112,7 @@ function UserManagement({ onBack }) {
     const showConfirm = useStore(state => state.showConfirm);
 
     const [showForm, setShowForm] = useState(false);
-    const [form, setForm] = useState({ fullname: '', phone: '', username: '', password: '', role: 'staff' });
+    const [form, setForm] = useState({ fullname: '', phone: '', username: '', password: '', role: 'staff', createdBy: '' });
 
     const [editingUsername, setEditingUsername] = useState(null);
     const [editForm, setEditForm] = useState({ fullname: '', phone: '', password: '' });
@@ -120,7 +120,7 @@ function UserManagement({ onBack }) {
     const handleAdd = () => {
         if (!form.username || !form.password) return;
         addStaff(form);
-        setForm({ fullname: '', phone: '', username: '', password: '', role: 'staff' });
+        setForm({ fullname: '', phone: '', username: '', password: '', role: 'staff', createdBy: '' });
         setShowForm(false);
     };
 
@@ -185,13 +185,26 @@ function UserManagement({ onBack }) {
                             <h3 className="font-bold text-slate-800">Tạo Tài Khoản Mới</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {currentUser?.role === 'sadmin' && (
-                                    <div className="space-y-1 md:col-span-2">
-                                        <label className="text-sm font-semibold text-slate-700 block">Cấp bậc / Quyền hạn *</label>
-                                        <select className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-emerald-500 transition-all text-sm font-medium" value={form.role || 'staff'} onChange={e => setForm({ ...form, role: e.target.value })}>
-                                            <option value="staff">Nhân viên thông thường (Staff)</option>
-                                            <option value="admin">Quản lý Cửa Hàng (Admin)</option>
-                                        </select>
-                                    </div>
+                                    <>
+                                        <div className="space-y-1 md:col-span-2">
+                                            <label className="text-sm font-semibold text-slate-700 block">Cấp bậc / Quyền hạn *</label>
+                                            <select className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-emerald-500 transition-all text-sm font-medium" value={form.role || 'staff'} onChange={e => setForm({ ...form, role: e.target.value, createdBy: e.target.value === 'admin' ? '' : form.createdBy })}>
+                                                <option value="staff">Nhân viên thông thường (Staff)</option>
+                                                <option value="admin">Quản lý Cửa Hàng (Admin)</option>
+                                            </select>
+                                        </div>
+                                        {form.role !== 'admin' && (
+                                            <div className="space-y-1 md:col-span-2">
+                                                <label className="text-sm font-semibold text-slate-700 block">Thuộc sự quản lý của (Cửa hàng / Chủ quán) *</label>
+                                                <select className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-emerald-500 transition-all text-sm font-medium" value={form.createdBy || ''} onChange={e => setForm({ ...form, createdBy: e.target.value })}>
+                                                    <option value="">Trực tiếp bởi SuperAdmin (Hệ thống)</option>
+                                                    {USERS.filter(u => u.role === 'admin').map(admin => (
+                                                        <option key={admin.username} value={admin.username}>{admin.fullname || admin.username}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                                 <div className="space-y-1">
                                     <label className="text-sm font-semibold text-slate-700 block">Tên đăng nhập *</label>
@@ -252,7 +265,21 @@ function UserManagement({ onBack }) {
                                                         {user.role === 'sadmin' && <span className="bg-violet-100 text-violet-600 text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">SuperAdmin</span>}
                                                     </h4>
                                                     <p className="text-xs text-slate-500 mt-0.5 font-medium flex items-center gap-1">@{user.username}</p>
-                                                    {isChild && parentAdmin && <span className="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded-full inline-block mt-1 font-semibold">Cửa hàng: {parentAdmin.fullname || parentAdmin.username}</span>}
+
+                                                    {user.role === 'admin' && (
+                                                        <span className="bg-violet-50 text-violet-600 border border-violet-100 text-[10px] px-2 py-0.5 rounded-full inline-block mt-1.5 font-semibold">Cửa Hàng Quản Lý</span>
+                                                    )}
+                                                    {user.role === 'staff' && user.createdBy && user.createdBy !== 'sadmin' && (
+                                                        <span className="bg-blue-50 text-blue-600 border border-blue-100 text-[10px] px-2 py-0.5 rounded-full inline-block mt-1.5 font-semibold">
+                                                            Nhân viên của: {USERS.find(u => u.username === user.createdBy)?.fullname || user.createdBy}
+                                                        </span>
+                                                    )}
+                                                    {user.role === 'staff' && (!user.createdBy || user.createdBy === 'sadmin') && (
+                                                        <span className="bg-slate-100 text-slate-500 border border-slate-200 text-[10px] px-2 py-0.5 rounded-full inline-block mt-1.5 font-semibold">
+                                                            Nhân viên Trực Thuộc Hệ Thống
+                                                        </span>
+                                                    )}
+
                                                     {user.role === 'admin' && currentUser?.role === 'sadmin' && (
                                                         <div className="mt-1.5">
                                                             {user.expiresAt ? (() => {
