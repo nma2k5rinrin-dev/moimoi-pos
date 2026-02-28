@@ -1,7 +1,7 @@
 import React from 'react';
 import { useStore } from '../../../store/useStore';
 import { formatCurrency } from '../../../utils/format';
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, Store } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -20,6 +20,10 @@ export function ProductGrid() {
     const products = useStore(state => state.products);
     const categories = useStore(state => state.categories);
     const bestSellers = useStore(state => state.bestSellers);
+    const USERS = useStore(state => state.USERS);
+    const currentUser = useStore(state => state.currentUser);
+    const sadminViewStoreId = useStore(state => state.sadminViewStoreId);
+    const setSadminViewStoreId = useStore(state => state.setSadminViewStoreId);
 
     const filteredProducts = products.filter(product => {
         const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
@@ -30,15 +34,34 @@ export function ProductGrid() {
     return (
         <div className="flex flex-col h-full col-span-12 lg:col-span-8 xl:col-span-9 p-4 lg:p-6 overflow-hidden">
             {/* Header Search & Filter */}
-            <div className="mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
-                <div className="w-full md:w-96">
+            <div className="mb-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                <div className="w-full md:w-auto flex flex-col sm:flex-row gap-3">
                     <input
                         type="text"
                         placeholder="Tìm kiếm món ăn..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full h-12 px-5 rounded-2xl bg-white border border-slate-200 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm"
+                        className="w-full sm:w-80 h-12 px-5 rounded-2xl bg-white border border-slate-200 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm"
                     />
+
+                    {currentUser?.role === 'sadmin' && (
+                        <div className="flex items-center gap-2 bg-white px-3 h-12 rounded-2xl border border-emerald-200 shadow-sm shrink-0 w-full sm:w-auto">
+                            <Store className="w-5 h-5 text-emerald-600 shrink-0" />
+                            <select
+                                value={sadminViewStoreId}
+                                onChange={(e) => setSadminViewStoreId(e.target.value)}
+                                className="bg-transparent text-sm font-bold outline-none border-none text-emerald-800 cursor-pointer w-full"
+                            >
+                                <option value="all">Tất cả Cửa hàng</option>
+                                <option value="sadmin">Hệ thống Gốc</option>
+                                {USERS.filter(u => u.role === 'admin').map(admin => (
+                                    <option key={admin.username} value={admin.username}>
+                                        {admin.fullname || admin.username}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex w-full md:w-auto overflow-x-auto gap-2 pb-2 md:pb-0 scrollbar-hide shrink-0">

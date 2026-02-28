@@ -20,7 +20,10 @@ export function Cart() {
     const checkoutOrder = useStore(state => state.checkoutOrder);
     const showToast = useStore(state => state.showToast);
     const currentUser = useStore(state => state.currentUser);
-    const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
+    const getStoreId = useStore(state => state.getStoreId);
+    const sadminViewStoreId = useStore(state => state.sadminViewStoreId);
+    const storeId = getStoreId();
+
     const tables = useStore(state => state.storeTables[storeId] || []);
     const addNote = useStore(state => state.addNote);
     const orders = useStore(state => state.orders);
@@ -30,14 +33,16 @@ export function Cart() {
     const visibleOrders = React.useMemo(() => {
         let list = orders;
         if (currentUser?.role !== 'sadmin') {
-            list = list.filter(o => o.storeId === storeId || !o.storeId);
+            list = list.filter(o => o.storeId === storeId || (!o.storeId && storeId === 'sadmin'));
+        } else if (currentUser?.role === 'sadmin' && sadminViewStoreId !== 'all') {
+            list = list.filter(o => o.storeId === sadminViewStoreId || (!o.storeId && sadminViewStoreId === 'sadmin'));
         }
         if (currentUser?.role === 'staff') {
             const todayStr = new Date().toDateString();
             list = list.filter(o => o.time && new Date(o.time).toDateString() === todayStr);
         }
         return list;
-    }, [orders, currentUser, storeId]);
+    }, [orders, currentUser, storeId, sadminViewStoreId]);
 
     const [editingNoteId, setEditingNoteId] = React.useState(null);
     const [showCheckoutModal, setShowCheckoutModal] = React.useState(false);

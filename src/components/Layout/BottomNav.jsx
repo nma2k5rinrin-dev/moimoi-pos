@@ -21,7 +21,7 @@ export function BottomNav() {
         { icon: UtensilsCrossed, label: "Order", path: "/" },
         { icon: ChefHat, label: "Bếp", path: "/kitchen" },
         ...(['admin', 'sadmin'].includes(currentUser?.role) ? [
-            { icon: BarChart3, label: "Báo Cáo", path: "/dashboard" },
+            { icon: BarChart3, label: "Dashboard", path: "/dashboard" },
             { icon: Settings, label: "Cài Đặt", path: "/settings" }
         ] : []),
     ];

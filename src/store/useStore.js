@@ -12,8 +12,12 @@ export const useStore = create(
             ],
             // Helper function lấy ID của Cửa hàng mẹ
             getStoreId: () => {
-                const user = get().currentUser;
+                const state = get();
+                const user = state.currentUser;
                 if (!user) return 'sadmin';
+                if (user.role === 'sadmin') {
+                    return state.sadminViewStoreId === 'all' ? 'sadmin' : state.sadminViewStoreId;
+                }
                 return user.role === 'staff' ? user.createdBy : user.username;
             },
             login: (username, pass) => {
@@ -277,6 +281,8 @@ export const useStore = create(
             selectedCategory: 'all',
             searchQuery: '',
             selectedTable: 'Mang về',
+            sadminViewStoreId: 'all', // all hoặc username của admin
+            setSadminViewStoreId: (storeId) => set({ sadminViewStoreId: storeId }),
             setSelectedTable: (table) => set({ selectedTable: table }),
             theme: 'light',
             toast: null,

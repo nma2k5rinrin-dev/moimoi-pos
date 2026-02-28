@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../../store/useStore';
-import { Clock, CheckCircle2, ChefHat, Check, X, User } from 'lucide-react';
+import { Clock, CheckCircle2, ChefHat, Check, X, User, Store } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -16,29 +16,31 @@ const STATUSES = [
 ];
 
 export default function KitchenPage() {
-    const { orders, currentUser, updateOrderStatus, updateOrderItemStatus, updateOrderPaymentStatus, showToast } = useStore();
-    const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
+    const { orders, currentUser, updateOrderStatus, updateOrderItemStatus, updateOrderPaymentStatus, showToast, sadminViewStoreId, setSadminViewStoreId, USERS, getStoreId } = useStore();
+    const storeId = getStoreId();
     const [activeTab, setActiveTab] = useState('all');
 
     const visibleOrders = React.useMemo(() => {
         let list = orders;
         if (currentUser?.role !== 'sadmin') {
-            list = list.filter(o => o.storeId === storeId || !o.storeId);
+            list = list.filter(o => o.storeId === storeId || (!o.storeId && storeId === 'sadmin'));
+        } else if (currentUser?.role === 'sadmin' && sadminViewStoreId !== 'all') {
+            list = list.filter(o => o.storeId === sadminViewStoreId || (!o.storeId && sadminViewStoreId === 'sadmin'));
         }
         if (currentUser?.role === 'staff') {
             const todayStr = new Date().toDateString();
             list = list.filter(o => o.time && new Date(o.time).toDateString() === todayStr);
         }
         return list;
-    }, [orders, currentUser, storeId]);
+    }, [orders, currentUser, storeId, sadminViewStoreId]);
 
     const filteredOrders = visibleOrders.filter(o => (activeTab === 'all' || o.status === activeTab));
 
     return (
         <div className="flex flex-col h-full bg-slate-100/50 p-4 md:p-6 lg:p-8 overflow-hidden animate-fade-in">
-            <div className="flex items-center justify-start mb-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
                 {/* Tabs Filter */}
-                <div className="flex p-1 bg-white border border-slate-200 rounded-xl overflow-x-auto shadow-sm w-full md:w-auto">
+                <div className="flex p-1 bg-white border border-slate-200 rounded-xl overflow-x-auto shadow-sm w-full md:w-auto scrollbar-hide">
                     <button
                         onClick={() => setActiveTab('all')}
                         className={cn("px-4 py-2 text-sm font-semibold rounded-lg transition-all whitespace-nowrap", activeTab === 'all' ? "bg-slate-800 text-white" : "text-slate-500 hover:bg-slate-50")}
@@ -56,6 +58,26 @@ export default function KitchenPage() {
                         </button>
                     ))}
                 </div>
+
+                {/* Sadmin Store Filter */}
+                {currentUser?.role === 'sadmin' && (
+                    <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-emerald-200 shadow-sm w-full md:w-auto">
+                        <Store className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <select
+                            value={sadminViewStoreId}
+                            onChange={(e) => setSadminViewStoreId(e.target.value)}
+                            className="bg-transparent text-sm font-bold outline-none border-none text-emerald-800 cursor-pointer w-full"
+                        >
+                            <option value="all">Tất cả Cửa hàng</option>
+                            <option value="sadmin">Hệ thống Gốc</option>
+                            {USERS.filter(u => u.role === 'admin').map(admin => (
+                                <option key={admin.username} value={admin.username}>
+                                    {admin.fullname || admin.username}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
 
             {/* Kanban Board / Grid */}
