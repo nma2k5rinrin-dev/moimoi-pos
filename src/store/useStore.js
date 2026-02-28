@@ -58,10 +58,18 @@ export const useStore = create(
                 set(state => ({
                     USERS: [...state.USERS, newUser],
                     currentUser: newUser,
-                    storeInfo: {
-                        ...state.storeInfo,
-                        name: storeName || state.storeInfo.name,
-                        phone: phone || state.storeInfo.phone,
+                    storeInfos: {
+                        ...state.storeInfos,
+                        [username]: {
+                            name: storeName || fullname,
+                            phone: phone || '',
+                            address: '',
+                            logoUrl: '',
+                            bankId: '',
+                            bankAccount: '',
+                            bankOwner: '',
+                            isPremium: false
+                        }
                     }
                 }));
             },
@@ -87,7 +95,22 @@ export const useStore = create(
                 }
                 const newStaff = { username, pass: password, role: role, isPremium: false, fullname, phone, avatar: '', createdBy: createdBy || state.currentUser?.username };
                 state.showToast('Thêm tài khoản thành công!');
-                return { USERS: [...state.USERS, newStaff] };
+
+                const updatedStoreInfos = role === 'admin' ? {
+                    ...state.storeInfos,
+                    [username]: {
+                        name: fullname || username,
+                        phone: phone || '',
+                        address: '',
+                        logoUrl: '',
+                        bankId: '',
+                        bankAccount: '',
+                        bankOwner: '',
+                        isPremium: false
+                    }
+                } : state.storeInfos;
+
+                return { USERS: [...state.USERS, newStaff], storeInfos: updatedStoreInfos };
             }),
             updateUser: (username, updatedData) => set(state => {
                 const updatedUsers = state.USERS.map(u =>
@@ -177,13 +200,16 @@ export const useStore = create(
                 // Nếu người click duyệt lại chính là đối tượng đang Login (Tự duyệt) -> update cả currentUser
                 const isSelf = state.currentUser?.username === req.username;
 
-                // Sync về storeInfo nếu là Cửa hàng duy nhất (để Trigger hàm cleanup không xoá DB)
-                const isNeedToSyncStoreInfo = currentUserObj.role === 'admin';
+                // Sync VIP Status vào storeInfos của Admin đó
+                const updatedStoreInfos = { ...state.storeInfos };
+                if (updatedStoreInfos[req.username]) {
+                    updatedStoreInfos[req.username] = { ...updatedStoreInfos[req.username], isPremium: true };
+                }
 
                 return {
                     USERS: newUsers,
                     currentUser: isSelf ? updatedUser : state.currentUser,
-                    storeInfo: isNeedToSyncStoreInfo ? { ...state.storeInfo, isPremium: true } : state.storeInfo,
+                    storeInfos: updatedStoreInfos,
                     upgradeRequests: state.upgradeRequests.filter(r => r.id !== requestId)
                 };
             }),
