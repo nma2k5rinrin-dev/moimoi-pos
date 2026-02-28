@@ -21,23 +21,7 @@ function cn(...inputs) {
     return twMerge(clsx(inputs));
 }
 
-// Mock Data
-const revenueData = [
-    { name: 'T2', total: 4500000 },
-    { name: 'T3', total: 5200000 },
-    { name: 'T4', total: 4800000 },
-    { name: 'T5', total: 6100000 },
-    { name: 'T6', total: 7500000 },
-    { name: 'T7', total: 9800000 },
-    { name: 'CN', total: 8900000 },
-];
-
-const bestSellers = [
-    { id: 1, name: 'Phở Bò Đặc Biệt', sold: 342, revenue: 22230000 },
-    { id: 2, name: 'Bún Chả Hà Nội', sold: 289, revenue: 17340000 },
-    { id: 3, name: 'Cơm Tấm Sườn Bì', sold: 256, revenue: 14080000 },
-];
-
+// Mẫu Dữ liệu Ảo (Mock Data) Đã bị gỡ bỏ theo yêu cầu
 
 const TIME_RANGES = [
     { id: 'today', label: 'Hôm nay' },
@@ -54,58 +38,102 @@ export default function DashboardPage() {
     const [customDate, setCustomDate] = useState(new Date().toISOString().split('T')[0]);
     const [activeModal, setActiveModal] = useState(null);
 
+    // Tính toán tất cả đơn hợp lệ của Quán (Sadmin thì xem được tất cả)
+    const allValidOrders = React.useMemo(() => {
+        return orders.filter(o => {
+            const isStatusMatch = o.status === 'completed' || o.paymentStatus === 'paid';
+            const isStoreMatch = currentUser?.role === 'sadmin' ? true : (o.storeId === storeId || (!o.storeId && storeId === 'sadmin'));
+            return isStatusMatch && isStoreMatch;
+        });
+    }, [orders, currentUser, storeId]);
+
+    // Trích xuất đơn theo khoảng thời gian
     let targetDateStr = new Date().toDateString();
     if (timeRange === 'custom') {
         targetDateStr = new Date(customDate).toDateString();
     }
-    // Dashboard tính doanh thu dựa trên các đơn đã Hoàn Thành (completed) OR Đã Trả Tiền (paid)
-    // Và phải lọc đúng đơn của Quán (ngoại trừ Sadmin)
+
     const currentFilteredOrders = React.useMemo(() => {
-        return orders.filter(o => {
-            const isDateMatch = new Date(o.time).toDateString() === targetDateStr;
-            const isStatusMatch = o.status === 'completed' || o.paymentStatus === 'paid';
-            const isStoreMatch = currentUser?.role === 'sadmin' ? true : (o.storeId === storeId || !o.storeId);
-            return isDateMatch && isStatusMatch && isStoreMatch;
+        const today = new Date();
+        return allValidOrders.filter(o => {
+            const orderDate = new Date(o.time);
+            if (timeRange === 'today') return orderDate.toDateString() === today.toDateString();
+            if (timeRange === 'month') return orderDate.getMonth() === today.getMonth() && orderDate.getFullYear() === today.getFullYear();
+            if (timeRange === 'year') return orderDate.getFullYear() === today.getFullYear();
+            if (timeRange === 'custom') return orderDate.toDateString() === targetDateStr;
+            return false;
         });
-    }, [orders, targetDateStr, currentUser, storeId]);
+    }, [allValidOrders, timeRange, targetDateStr]);
 
     const revenueByTable = currentFilteredOrders.reduce((acc, order) => {
-        if (!acc[order.table]) acc[order.table] = { count: 0, total: 0 };
-        acc[order.table].count += 1;
-        acc[order.table].total += order.totalAmount || 0;
+        const tableName = order.table || 'Mang về';
+        if (!acc[tableName]) acc[tableName] = { count: 0, total: 0 };
+        acc[tableName].count += 1;
+        acc[tableName].total += order.totalAmount || 0;
         return acc;
     }, {});
 
     const getStatsByTimeRange = (range) => {
         const extraRevenue = currentFilteredOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
         const extraOrders = currentFilteredOrders.length;
-        const extraCustomers = extraOrders * 2;
-
-        const baseStats = {
-            today: { revenue: 8900000 + (range === 'today' ? extraRevenue : 0), orders: 145 + (range === 'today' ? extraOrders : 0), customers: 342 + (range === 'today' ? extraCustomers : 0), trend: 12.5 },
-            month: { revenue: 245000000 + extraRevenue, orders: 4250 + extraOrders, customers: 9800 + extraCustomers, trend: 8.2 },
-            year: { revenue: 3150000000 + extraRevenue, orders: 52000 + extraOrders, customers: 115000 + extraCustomers, trend: 15.4 },
-            custom: { revenue: extraRevenue, orders: extraOrders, customers: extraCustomers, trend: 0 },
-        };
-        const data = baseStats[range] || baseStats.today;
+        const extraCustomers = extraOrders; // Tạm tính 1 đơn = 1 khách
 
         let revenueLabel = 'Doanh thu hôm nay';
-        if (range === 'month') revenueLabel = 'Doanh thu tháng';
-        if (range === 'year') revenueLabel = 'Doanh thu năm';
-        if (range === 'custom') revenueLabel = 'Doanh thu tuỳ chọn';
+        if (range === 'month') revenueLabel = 'Doanh thu tháng này';
+        if (range === 'year') revenueLabel = 'Doanh thu năm nay';
+        if (range === 'custom') revenueLabel = 'Doanh thu ngày tuỳ chọn';
 
         return [
-            { label: revenueLabel, value: data.revenue, trend: data.trend, isUp: true, icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-            { label: 'Tổng số đơn', value: data.orders, trend: data.trend - 4.3, isUp: true, icon: ShoppingBag, color: 'text-blue-500', bg: 'bg-blue-50' },
-            { label: 'Khách hàng', value: data.customers, trend: data.trend - 14.9, isUp: data.trend - 14.9 > 0, icon: Users, color: 'text-orange-500', bg: 'bg-orange-50' },
+            { label: revenueLabel, value: extraRevenue, trend: 0, isUp: true, icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+            { label: 'Tổng số đơn', value: extraOrders, trend: 0, isUp: true, icon: ShoppingBag, color: 'text-blue-500', bg: 'bg-blue-50' },
+            { label: 'Khách hàng', value: extraCustomers, trend: 0, isUp: true, icon: Users, color: 'text-orange-500', bg: 'bg-orange-50' },
         ];
     };
 
     const stats = getStatsByTimeRange(timeRange);
 
-    // Tính toán báo cáo theo Staff (chỉ Admin mới thấy)
+    // Tính toán biểu đồ BarChart tuần (7 ngày)
+    const revenueData = React.useMemo(() => {
+        const weekData = [
+            { name: 'CN', total: 0 },
+            { name: 'T2', total: 0 },
+            { name: 'T3', total: 0 },
+            { name: 'T4', total: 0 },
+            { name: 'T5', total: 0 },
+            { name: 'T6', total: 0 },
+            { name: 'T7', total: 0 },
+        ];
+        allValidOrders.forEach(o => {
+            const d = new Date(o.time);
+            const diff = (new Date() - d) / (1000 * 60 * 60 * 24);
+            if (diff < 7 && diff >= 0) {
+                weekData[d.getDay()].total += (o.totalAmount || 0);
+            }
+        });
+        // Sắp xếp thứ 2 lên đầu
+        return [weekData[1], weekData[2], weekData[3], weekData[4], weekData[5], weekData[6], weekData[0]];
+    }, [allValidOrders]);
+
+    // Tính toán món bán chạy nhất
+    const bestSellers = React.useMemo(() => {
+        const itemMap = {};
+        currentFilteredOrders.forEach(o => {
+            if (!o.items) return;
+            o.items.forEach(item => {
+                const uniqueId = item.id;
+                if (!itemMap[uniqueId]) {
+                    itemMap[uniqueId] = { id: uniqueId, name: item.name, sold: 0, revenue: 0 };
+                }
+                itemMap[uniqueId].sold += item.quantity;
+                itemMap[uniqueId].revenue += item.price * item.quantity;
+            });
+        });
+        return Object.values(itemMap).sort((a, b) => b.sold - a.sold).slice(0, 5);
+    }, [currentFilteredOrders]);
+
+    // Tính toán báo cáo theo Staff (Nhân viên nào tạo đơn)
     const staffRevenue = currentFilteredOrders.reduce((acc, order) => {
-        const creator = order.createdBy || 'unknown';
+        const creator = order.createdBy || 'sadmin';
         if (!acc[creator]) acc[creator] = { orders: 0, revenue: 0 };
         acc[creator].orders += 1;
         acc[creator].revenue += order.totalAmount || 0;
@@ -121,7 +149,7 @@ export default function DashboardPage() {
             orders: staffRevenue[username].orders,
             revenue: staffRevenue[username].revenue
         };
-    }).sort((a, b) => b.revenue - a.revenue); // Xếp hạng theo doanh thu giảm dần
+    }).sort((a, b) => b.revenue - a.revenue);
 
     return (
         <div className="flex flex-col h-full bg-slate-50 p-4 md:p-6 lg:p-8 animate-fade-in overflow-y-auto">
