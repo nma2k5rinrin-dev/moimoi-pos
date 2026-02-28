@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useStore } from '../../store/useStore';
+import { useStore, useStoreId } from '../../store/useStore';
 import { Clock, CheckCircle2, ChefHat, Check, X, User, Store } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { clsx } from 'clsx';
@@ -16,8 +16,8 @@ const STATUSES = [
 ];
 
 export default function KitchenPage() {
-    const { orders, currentUser, updateOrderStatus, updateOrderItemStatus, updateOrderPaymentStatus, showToast, sadminViewStoreId, setSadminViewStoreId, USERS, getStoreId } = useStore();
-    const storeId = getStoreId();
+    const { orders, currentUser, updateOrderStatus, updateOrderItemStatus, updateOrderPaymentStatus, showToast, sadminViewStoreId, setSadminViewStoreId, USERS } = useStore();
+    const storeId = useStoreId();
     const [activeTab, setActiveTab] = useState('all');
 
     const visibleOrders = React.useMemo(() => {

@@ -3,8 +3,13 @@ import { X, Zap, CheckCircle2, QrCode, Banknote, Copy, ArrowLeft } from 'lucide-
 import { useStore } from '../store/useStore';
 
 export function UpgradeModal() {
-    const { isUpgradeModalOpen, setUpgradeModalOpen, requestUpgrade, currentUser, showToast } = useStore();
+    const { isUpgradeModalOpen, setUpgradeModalOpen, requestUpgrade, currentUser, showToast, storeInfos } = useStore();
     const [selectedPlan, setSelectedPlan] = React.useState(null);
+
+    const sadminInfo = storeInfos['sadmin'] || {};
+    const bankName = sadminInfo.bankName || sadminInfo.bankId || 'Ngân hàng chưa cập nhật';
+    const bankOwner = sadminInfo.bankOwner || 'CHƯA CẬP NHẬT CTK';
+    const bankAccount = sadminInfo.bankAccount || 'CHƯA CẬP NHẬT STK';
 
     if (!isUpgradeModalOpen) return null;
 
@@ -44,9 +49,9 @@ export function UpgradeModal() {
                             <p className="text-slate-500 max-w-lg mx-auto text-base">Bứt phá doanh thu với các tính năng quản lý cao cấp như thêm không giới hạn nhân viên và xem báo cáo tài chính chi tiết.</p>
                         </div>
 
-                        <div className="flex overflow-x-auto snap-x snap-mandatory md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 mt-10 relative z-10 text-left pb-4 -mx-4 md:mx-0 px-4 md:px-0 hide-scrollbar scroll-smooth">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 md:mt-10 relative z-10 text-left pb-4">
                             {plans.map((plan, i) => (
-                                <div key={i} className={`relative p-5 rounded-2xl border min-w-[260px] md:min-w-0 flex-shrink-0 snap-center snap-always ${plan.popular ? 'border-amber-400 shadow-xl shadow-amber-500/10 bg-white md:scale-105 z-10' : 'border-slate-200 bg-white hover:border-amber-300 hover:shadow-lg hover:bg-white'} transition-all group flex flex-col cursor-pointer`}>
+                                <div key={i} className={`relative p-5 rounded-2xl border ${plan.popular ? 'border-amber-400 shadow-xl shadow-amber-500/10 bg-white md:scale-105 z-10' : 'border-slate-200 bg-white hover:border-amber-300 hover:shadow-lg hover:bg-white'} transition-all group flex flex-col cursor-pointer`}>
                                     {plan.popular && (
                                         <div className="absolute -top-3 inset-x-0 flex justify-center">
                                             <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-sm">Khuyên Dùng</span>
@@ -94,8 +99,8 @@ export function UpgradeModal() {
                             <h3 className="text-xl font-bold text-slate-800 mb-2">Thanh toán bằng QR</h3>
                             <p className="text-slate-500 text-sm mb-6 text-center">Sử dụng App Ngân hàng quét mã để thanh toán tự động</p>
                             <div className="w-48 h-48 bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-center">
-                                {/* Fake QR Code Image for demo */}
-                                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=PAYMENT_MOCK_MOIMOI_APP`} className="w-full h-full object-contain mix-blend-multiply" alt="QR Code" />
+                                {/* Dynamic VietQR generation */}
+                                <img src={`https://img.vietqr.io/image/${bankName}-${bankAccount}-compact2.jpg?amount=${parseInt(selectedPlan.price.replace(/\D/g, ''))}&addInfo=${encodeURIComponent(currentUser?.username + ' mua goi VIP')}&accountName=${encodeURIComponent(bankOwner)}`} className="w-full h-full object-contain mix-blend-multiply" alt="QR Code Khong Hop Le" onError={(e) => { e.target.src = 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=CHUA_CAP_NHAT_STK'; }} />
                             </div>
                         </div>
 
@@ -107,17 +112,17 @@ export function UpgradeModal() {
                             <div className="space-y-4">
                                 <div className="space-y-1">
                                     <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Ngân hàng</p>
-                                    <p className="font-semibold text-slate-800">Vietcombank</p>
+                                    <p className="font-semibold text-slate-800 uppercase">{bankName}</p>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Chủ tài khoản</p>
-                                    <p className="font-semibold text-slate-800 uppercase">NGUYEN VAN SADMIN</p>
+                                    <p className="font-semibold text-slate-800 uppercase">{bankOwner}</p>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Số tài khoản</p>
                                     <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-2 max-w-max">
-                                        <span className="font-bold text-lg text-emerald-600 tracking-wider">1234567890</span>
-                                        <button onClick={() => handleCopy('1234567890')} className="p-1.5 text-slate-400 hover:text-emerald-600 bg-white rounded-md shadow-sm transition-colors cursor-pointer">
+                                        <span className="font-bold text-lg text-emerald-600 tracking-wider">{bankAccount}</span>
+                                        <button onClick={() => handleCopy(bankAccount)} className="p-1.5 text-slate-400 hover:text-emerald-600 bg-white rounded-md shadow-sm transition-colors cursor-pointer">
                                             <Copy className="w-4 h-4" />
                                         </button>
                                     </div>

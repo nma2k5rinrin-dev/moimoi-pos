@@ -3,7 +3,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     LineChart, Line
 } from 'recharts';
-import { useStore } from '../../store/useStore';
+import { useStore, useStoreId } from '../../store/useStore';
 import { formatCurrency } from '../../utils/format';
 import {
     TrendingUp,
@@ -32,7 +32,7 @@ const TIME_RANGES = [
 export default function DashboardPage() {
     const orders = useStore(state => state.orders);
     const currentUser = useStore(state => state.currentUser);
-    const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
+    const storeId = useStoreId();
     const USERS = useStore(state => state.USERS);
     const [timeRange, setTimeRange] = useState('today');
     const [customDate, setCustomDate] = useState(new Date().toISOString().split('T')[0]);

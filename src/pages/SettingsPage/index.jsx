@@ -19,9 +19,10 @@ import {
     BadgeCheck,
     UserPlus,
     Edit2,
-    X
+    X,
+    Tags
 } from 'lucide-react';
-import { useStore } from '../../store/useStore';
+import { useStore, useStoreId } from '../../store/useStore';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -39,8 +40,7 @@ const SETTING_MENUS = [
 ];
 
 function TableManagement({ onBack }) {
-    const currentUser = useStore(state => state.currentUser);
-    const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
+    const storeId = useStoreId();
     const tables = useStore(state => state.storeTables[storeId] || []);
     const addTable = useStore(state => state.addTable);
     const removeTable = useStore(state => state.removeTable);
@@ -110,6 +110,7 @@ function UserManagement({ onBack }) {
     const updateUser = useStore(state => state.updateUser);
     const orders = useStore(state => state.orders);
     const showConfirm = useStore(state => state.showConfirm);
+    const showToast = useStore(state => state.showToast);
 
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState({ fullname: '', phone: '', username: '', password: '', role: 'staff', createdBy: '' });
@@ -489,14 +490,23 @@ function UserManagement({ onBack }) {
 }
 
 function MenuManagement({ onBack }) {
-    const products = useStore(state => state.products);
+    const storeId = useStoreId();
+    const products = useStore(state => state.products[storeId] || []);
     const deleteProduct = useStore(state => state.deleteProduct);
     const updateProduct = useStore(state => state.updateProduct);
     const addProduct = useStore(state => state.addProduct);
-    const categories = useStore(state => state.categories);
+    const categories = useStore(state => state.categories[storeId] || []);
+    const addCategory = useStore(state => state.addCategory);
+    const updateCategory = useStore(state => state.updateCategory);
+    const deleteCategory = useStore(state => state.deleteCategory);
     const showConfirm = useStore(state => state.showConfirm);
     const [editingId, setEditingId] = useState(null);
     const [editForm, setEditForm] = useState({});
+
+    const [activeTab, setActiveTab] = useState('products');
+    const [editingCategoryId, setEditingCategoryId] = useState(null);
+    const [editingCategoryName, setEditingCategoryName] = useState('');
+    const [newCategoryName, setNewCategoryName] = useState('');
 
     const handleEdit = (p) => {
         setEditingId(p.id);
@@ -515,24 +525,117 @@ function MenuManagement({ onBack }) {
     return (
         <div className="flex-1 overflow-y-auto p-6 lg:p-10 animate-fade-in max-w-5xl">
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-full min-h-[500px]">
-                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <button onClick={onBack} className="md:hidden p-2 -ml-2 text-slate-400 hover:text-slate-600 active:scale-95 transition-all">
                             <ChevronLeft className="w-6 h-6" />
                         </button>
                         <div>
                             <h2 className="text-xl font-bold text-slate-800">Quản Lý Thực Đơn</h2>
-                            <p className="text-slate-500 text-sm mt-1">Thêm, sửa, xoá và cập nhật trạng thái món ăn</p>
+                            <p className="text-slate-500 text-sm mt-1">Thêm, sửa, xoá và cập nhật sản phẩm</p>
                         </div>
                     </div>
-                    <button onClick={() => { setEditingId('new'); setEditForm({ name: '', price: 0, image: '', category: 'main', isOutofStock: false }); }} className="px-4 py-2 bg-emerald-500 text-white rounded-xl font-semibold hover:bg-emerald-600 transition-colors shadow-sm">
-                        + Thêm Món
+                    <div className="w-full md:w-auto shrink-0 flex items-center justify-end">
+                        {activeTab === 'products' ? (
+                            <button onClick={() => { setEditingId('new'); setEditForm({ name: '', price: 0, image: '', category: categories.length > 0 ? categories[0].id : '', isOutofStock: false }); }} className="w-full md:w-auto px-4 py-2 bg-emerald-500 text-white rounded-xl font-semibold hover:bg-emerald-600 transition-colors shadow-sm whitespace-nowrap">
+                                + Thêm Món
+                            </button>
+                        ) : (
+                            <div className="flex gap-2 w-full md:max-w-xs">
+                                <input
+                                    value={newCategoryName}
+                                    onChange={e => setNewCategoryName(e.target.value)}
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter' && newCategoryName.trim()) {
+                                            addCategory(newCategoryName.trim());
+                                            setNewCategoryName('');
+                                        }
+                                    }}
+                                    placeholder="Tên danh mục mới"
+                                    className="flex-1 min-w-0 px-3 py-2 border rounded-xl outline-none focus:border-emerald-500"
+                                />
+                                <button
+                                    onClick={() => {
+                                        if (newCategoryName.trim()) {
+                                            addCategory(newCategoryName.trim());
+                                            setNewCategoryName('');
+                                        }
+                                    }}
+                                    className="px-4 py-2 shrink-0 bg-emerald-500 text-white rounded-xl font-semibold hover:bg-emerald-600 hover:shadow shadow-sm whitespace-nowrap"
+                                >
+                                    Thêm
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-4 px-6 border-b border-slate-100">
+                    <button onClick={() => setActiveTab('products')} className={cn("pb-3 font-semibold text-sm transition-colors border-b-2", activeTab === 'products' ? "border-emerald-500 text-emerald-600" : "border-transparent text-slate-500 hover:text-slate-800")}>
+                        Danh sách Món Ăn
+                    </button>
+                    <button onClick={() => setActiveTab('categories')} className={cn("pb-3 font-semibold text-sm transition-colors border-b-2", activeTab === 'categories' ? "border-emerald-500 text-emerald-600" : "border-transparent text-slate-500 hover:text-slate-800")}>
+                        Quản lý Phân Loại
                     </button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                    {/* Render Category Management */}
+                    {activeTab === 'categories' && (
+                        <div className="grid grid-cols-1 gap-3">
+                            {categories.map(c => (
+                                <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-slate-100 rounded-xl bg-white hover:shadow-sm transition-all">
+                                    {editingCategoryId === c.id ? (
+                                        <input
+                                            autoFocus
+                                            value={editingCategoryName}
+                                            onChange={e => setEditingCategoryName(e.target.value)}
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter' && editingCategoryName.trim()) {
+                                                    updateCategory({ ...c, name: editingCategoryName.trim() });
+                                                    setEditingCategoryId(null);
+                                                }
+                                                if (e.key === 'Escape') setEditingCategoryId(null);
+                                            }}
+                                            className="flex-1 px-3 py-2 border border-emerald-500 rounded-lg outline-none"
+                                        />
+                                    ) : (
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-slate-800 text-lg">{c.name}</span>
+                                            <span className="text-xs text-slate-500 mt-1">ID: {c.id}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center gap-2">
+                                        {editingCategoryId === c.id ? (
+                                            <button onClick={() => {
+                                                if (editingCategoryName.trim()) {
+                                                    updateCategory({ ...c, name: editingCategoryName.trim() });
+                                                    setEditingCategoryId(null);
+                                                }
+                                            }} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg font-semibold text-sm">Lưu</button>
+                                        ) : (
+                                            <button onClick={() => { setEditingCategoryId(c.id); setEditingCategoryName(c.name); }} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                                                <Edit2 className="w-5 h-5" />
+                                            </button>
+                                        )}
+                                        <button onClick={() => showConfirm(`Xoá danh mục "${c.name}"? Các món ăn sẽ bị thu hồi nhãn danh mục.`, () => deleteCategory(c.id))} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                            <Trash2 className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                            {categories.length === 0 && (
+                                <div className="text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                    <Tags className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                                    <p className="text-slate-500 font-medium">Bạn chưa tạo danh mục (nhóm) món ăn nào.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Render Edit Form if editing */}
-                    {editingId && (
+                    {activeTab === 'products' && editingId && (
                         <div className="bg-slate-50 p-4 border border-slate-200 rounded-xl mb-6 flex flex-col gap-4 animate-fade-in shadow-sm">
                             <h3 className="font-bold text-slate-800">{editingId === 'new' ? 'Thêm Món Mới' : 'Cập Nhật Món Ăn'}</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -568,6 +671,7 @@ function MenuManagement({ onBack }) {
                                     </div>
                                 </div>
                                 <select className="p-3 bg-white border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium text-slate-800" value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })}>
+                                    <option value="">-- Chưa gắn phân loại --</option>
                                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                                 <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer bg-white p-3 rounded-xl border border-slate-200 select-none">
@@ -579,33 +683,42 @@ function MenuManagement({ onBack }) {
                                     Đánh dấu Món HOT (🔥)
                                 </label>
                             </div>
-                            <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-slate-200">
-                                <button onClick={() => setEditingId(null)} className="px-5 py-2 hover:bg-slate-200 rounded-xl font-semibold text-slate-600 transition-colors">Huỷ</button>
-                                <button onClick={handleSave} className="px-5 py-2 bg-emerald-500 text-white rounded-xl font-semibold hover:bg-emerald-600 transition-colors shadow-md shadow-emerald-500/20 flex items-center gap-2">Lưu lại</button>
+                            <div className="flex flex-row md:justify-end gap-3 mt-4 pt-4 border-t border-slate-200 w-full">
+                                <button onClick={() => setEditingId(null)} className="flex-1 md:flex-none px-5 py-3 md:py-2 hover:bg-slate-200 bg-slate-100 md:bg-transparent rounded-xl font-semibold text-slate-600 transition-colors text-center">Huỷ bỏ</button>
+                                <button onClick={handleSave} className="flex-1 md:flex-none px-5 py-3 md:py-2 bg-emerald-500 text-white rounded-xl font-semibold hover:bg-emerald-600 transition-colors shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2">Lưu lại</button>
                             </div>
                         </div>
                     )}
 
                     {/* Product List */}
-                    <div className="grid grid-cols-1 gap-3">
-                        {products.map(p => (
-                            <div key={p.id} className={cn("flex items-center gap-4 p-3 border rounded-xl bg-white transition-all hover:shadow-sm", p.isOutofStock ? "border-red-200 bg-red-50/30" : "border-slate-100")}>
-                                <img src={p.image} className={cn("w-14 h-14 rounded-lg object-cover bg-slate-100", p.isOutofStock && "grayscale opacity-50")} alt={p.name} />
-                                <div className="flex-1">
-                                    <h4 className="font-semibold text-slate-800 flex items-center gap-2 text-lg">
-                                        {p.name}
-                                        {p.isHot && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">🔥 HOT</span>}
-                                        {p.isOutofStock && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">Đã hết hàng</span>}
-                                    </h4>
-                                    <p className="text-sm text-emerald-600 font-bold mt-0.5">{p.price.toLocaleString()}đ</p>
+                    {activeTab === 'products' && (
+                        <div className="grid grid-cols-1 gap-3">
+                            {products.map(p => (
+                                <div key={p.id} className={cn("flex flex-col sm:flex-row sm:items-center gap-4 p-4 border rounded-xl bg-white transition-all hover:shadow-sm", p.isOutofStock ? "border-red-200 bg-red-50/30" : "border-slate-100")}>
+                                    <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+                                        <img src={p.image} className={cn("w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover bg-slate-100 shrink-0", p.isOutofStock && "grayscale opacity-50")} alt={p.name} />
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-semibold text-slate-800 flex flex-wrap items-center gap-1.5 sm:gap-2 text-base leading-tight">
+                                                <span className="truncate max-w-full">{p.name || 'Món chưa đặt tên'}</span>
+                                                {p.isHot && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold whitespace-nowrap">🔥 HOT</span>}
+                                                {p.isOutofStock && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold whitespace-nowrap">Đã hết hàng</span>}
+                                            </h4>
+                                            <p className="text-sm text-emerald-600 font-bold mt-1.5">{p.price ? p.price.toLocaleString() : '0'}đ</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 shrink-0 border-t border-slate-100 pt-3 sm:border-t-0 sm:pt-0 w-full sm:w-auto">
+                                        <button onClick={() => handleEdit(p)} className="flex-1 sm:flex-none px-6 sm:px-4 py-2.5 sm:py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors text-sm font-bold flex justify-center items-center">Sửa</button>
+                                        <button onClick={() => showConfirm(`Xác nhận xoá "${p.name}"?`, () => deleteProduct(p.id))} className="flex-1 sm:flex-none px-6 sm:px-4 py-2.5 sm:py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors text-sm font-bold flex justify-center items-center">Xoá</button>
+                                    </div>
                                 </div>
-                                <div className="flex gap-2 shrink-0">
-                                    <button onClick={() => handleEdit(p)} className="px-4 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors text-sm font-bold">Sửa</button>
-                                    <button onClick={() => showConfirm('Chắc chắn xoá món này?', () => deleteProduct(p.id))} className="px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors text-sm font-bold">Xoá</button>
+                            ))}
+                            {products.length === 0 && (
+                                <div className="text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                    <p className="text-slate-500 font-medium">Bạn chưa có sản phẩm nào trong thực đơn.</p>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -619,11 +732,16 @@ export default function SettingsPage() {
     const toggleTheme = useStore(state => state.toggleTheme);
     const showToast = useStore(state => state.showToast);
     const currentUser = useStore(state => state.currentUser);
-    const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
+    const storeId = useStoreId();
     const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin'] || {});
     const updateStoreInfo = useStore(state => state.updateStoreInfo);
 
     const [generalForm, setGeneralForm] = useState(storeInfo);
+
+    // Sync form mỗi khi storeInfo thay đổi (sadmin switch cửa hàng, hoặc lần đầu load)
+    React.useEffect(() => {
+        setGeneralForm(storeInfo);
+    }, [storeId]);
 
     const handleSaveGeneral = () => {
         updateStoreInfo(generalForm);
@@ -713,19 +831,20 @@ export default function SettingsPage() {
                                                 if (file) {
                                                     const reader = new FileReader();
                                                     reader.onload = () => {
-                                                        const img = document.getElementById('store-logo-preview');
-                                                        if (img) {
-                                                            img.src = reader.result;
-                                                            img.classList.remove('hidden');
-                                                        }
+                                                        setGeneralForm(prev => ({ ...prev, logoUrl: reader.result }));
                                                     };
                                                     reader.readAsDataURL(file);
                                                 }
                                             }}
                                         />
-                                        <img id="store-logo-preview" className="absolute inset-0 w-full h-full object-cover hidden z-0 bg-white" />
-                                        <ImageIcon className="w-6 h-6 mb-1 relative z-0 group-hover:scale-110 transition-transform bg-white rounded-full" />
-                                        <span className="text-xs font-medium relative z-0 bg-white px-1 rounded">Tải Logo</span>
+                                        {generalForm.logoUrl ? (
+                                            <img src={generalForm.logoUrl} className="absolute inset-0 w-full h-full object-cover z-0" alt="Logo preview" />
+                                        ) : (
+                                            <>
+                                                <ImageIcon className="w-6 h-6 mb-1 relative z-0 group-hover:scale-110 transition-transform" />
+                                                <span className="text-xs font-medium relative z-0 px-1 rounded">Tải Logo</span>
+                                            </>
+                                        )}
                                     </div>
                                     <div>
                                         <h4 className="font-medium text-slate-800">Logo Quán</h4>

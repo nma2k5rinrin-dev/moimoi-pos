@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useStore } from "../../store/useStore";
+import { useStore, useStoreId } from "../../store/useStore";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -27,7 +27,7 @@ export function Sidebar() {
     const location = useLocation();
     const navigate = useNavigate();
     const currentUser = useStore(state => state.currentUser);
-    const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
+    const storeId = useStoreId();
     const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin'] || {});
     const logout = useStore(state => state.logout);
     const showToast = useStore(state => state.showToast);
@@ -112,10 +112,16 @@ export function Sidebar() {
                     className="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-50 rounded-xl transition-colors flex-1 min-w-0 mr-2"
                 >
                     {currentUser?.avatar ? (
-                        <img src={currentUser.avatar} alt="User" className="w-10 h-10 rounded-full object-cover shadow-sm bg-slate-50 shrink-0 border border-slate-200" />
+                        <div className="relative shrink-0">
+                            <img src={currentUser.avatar} alt="User" className="w-10 h-10 rounded-full object-cover shadow-sm bg-slate-50 border border-slate-200" />
+                            {currentUser?.role === 'sadmin' && <span className="absolute -top-1.5 -right-1.5 text-sm leading-none select-none">👑</span>}
+                            {currentUser?.isPremium && currentUser?.role !== 'sadmin' && <span className="absolute -top-1.5 -right-1.5 text-sm leading-none select-none">💎</span>}
+                        </div>
                     ) : (
-                        <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center font-bold shadow-sm shrink-0 border border-emerald-200">
+                        <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center font-bold shadow-sm shrink-0 border border-emerald-200 relative">
                             {currentUser?.username?.charAt(0).toUpperCase()}
+                            {currentUser?.role === 'sadmin' && <span className="absolute -top-1.5 -right-1.5 text-sm leading-none select-none">👑</span>}
+                            {currentUser?.isPremium && currentUser?.role !== 'sadmin' && <span className="absolute -top-1.5 -right-1.5 text-sm leading-none select-none">💎</span>}
                         </div>
                     )}
                     <div className="flex-1 min-w-0">
@@ -191,17 +197,26 @@ export function Sidebar() {
                     <div className="absolute bottom-[calc(100%+8px)] left-4 w-60 bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-2 animate-slide-up z-50 origin-bottom-left">
                         {/* User Info Header in Dropdown */}
                         <div className="p-3 border-b border-slate-100 flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                            <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 relative">
                                 {currentUser?.avatar ? (
                                     <img src={currentUser.avatar} className="w-full h-full rounded-full object-cover" />
                                 ) : (
                                     <span className="font-bold text-sm uppercase">{currentUser?.username?.charAt(0) || 'U'}</span>
                                 )}
+                                {/* Badge biểu tượng */}
+                                {currentUser?.role === 'sadmin' && (
+                                    <span className="absolute -top-1.5 -right-1.5 text-base leading-none select-none" title="Super Admin">👑</span>
+                                )}
+                                {currentUser?.isPremium && currentUser?.role !== 'sadmin' && (
+                                    <span className="absolute -top-1.5 -right-1.5 text-base leading-none select-none" title="Tài khoản VIP">💎</span>
+                                )}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-bold text-slate-800 truncate">{currentUser?.fullname || currentUser?.username}</p>
                                 {currentUser?.role === 'sadmin' ? (
-                                    <p className="text-xs text-violet-500 font-bold truncate">Gói VIP</p>
+                                    <p className="text-xs text-violet-500 font-bold truncate">Super Admin</p>
+                                ) : currentUser?.isPremium ? (
+                                    <p className="text-xs text-amber-500 font-bold truncate">⭐ Tài khoản VIP</p>
                                 ) : (
                                     <p className="text-xs text-slate-500 font-medium truncate">Gói Miễn phí</p>
                                 )}

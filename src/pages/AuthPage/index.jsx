@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '../../store/useStore';
+import { useStore, useStoreId } from '../../store/useStore';
 import { Store, User, Lock, LogIn, UserPlus, Phone, Briefcase, BadgeCheck } from 'lucide-react';
 
 export default function AuthPage() {
@@ -20,7 +20,7 @@ export default function AuthPage() {
     const login = useStore(state => state.login);
     const register = useStore(state => state.register);
     const currentUser = useStore(state => state.currentUser);
-    const storeId = currentUser ? (currentUser.role === 'staff' ? currentUser.createdBy : currentUser.username) : 'sadmin';
+    const storeId = useStoreId();
     const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin'] || {});
     const showToast = useStore(state => state.showToast);
     const navigate = useNavigate();
@@ -38,12 +38,6 @@ export default function AuthPage() {
             if (result === 'success') {
                 showToast('Đăng nhập thành công!');
                 navigate('/');
-            } else if (result === 'expired') {
-                setError('Tài khoản của bạn đã hết hạn sử dụng. Vui lòng liên hệ Admin để gia hạn!');
-                showToast('License hết hạn', 'error');
-            } else if (result === 'parent_expired') {
-                setError('Cửa hàng quản lý bạn đã hết hạn sử dụng phần mềm!');
-                showToast('License hết hạn', 'error');
             } else {
                 setError('Sai tên đăng nhập hoặc mật khẩu');
                 showToast('Đăng nhập thất bại', 'error');

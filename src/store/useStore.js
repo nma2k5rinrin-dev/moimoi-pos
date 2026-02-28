@@ -34,23 +34,53 @@ export const useStore = create(
                     return 'success';
                 }
 
-                const user = get().USERS.find(u => u.username === username && u.pass === pass);
+                const cleanInputUsername = username.toLowerCase().replace(/\s/g, '');
+                const user = get().USERS.find(u => {
+                    const cleanDbUsername = u.username.toLowerCase().replace(/\s/g, '');
+                    return cleanDbUsername === cleanInputUsername && u.pass === pass;
+                });
                 if (user) {
                     // Check Hạn Sử Dụng (License) cho Admin
                     if (user.role === 'admin' && user.expiresAt) {
                         const isExpired = Date.now() > new Date(user.expiresAt).getTime();
-                        if (isExpired) return 'expired';
+                        if (isExpired) {
+                            // User is expired, demote to free tier but DO NOT block login
+                            if (user.isPremium) {
+                                user.isPremium = false;
+                            }
+                            user.showVipExpired = true; // Flag to show the Renewal Modal
+
+                            // Remove showVipCongrat if it somehow lingered
+                            if (user.showVipCongrat) {
+                                user.showVipCongrat = false;
+                            }
+                        }
                     }
                     // Nếu Staff đăng nhập, kiểm tra xem Cửa Hàng (Admin quản lý) có bị hết hạn không
                     if (user.role === 'staff' && user.createdBy) {
                         const parentAdmin = get().USERS.find(u => u.username === user.createdBy);
                         if (parentAdmin && parentAdmin.expiresAt) {
                             const isParentExpired = Date.now() > new Date(parentAdmin.expiresAt).getTime();
-                            if (isParentExpired) return 'parent_expired';
+                            if (isParentExpired) {
+                                // Just let staff login but inform them if necessary. For now, we allow them to login.
+                                // Or we could block them? Let's allow but they also face limitations.
+                            }
                         }
                     }
 
-                    set({ currentUser: user });
+                    // Update the USERS array to reflect isPremium and showVipExpired changes
+                    const updatedUsers = get().USERS.map(u => u.username === user.username ? { ...u, isPremium: user.isPremium, showVipExpired: user.showVipExpired, showVipCongrat: user.showVipCongrat } : u);
+
+                    const updatedStoreInfos = { ...get().storeInfos };
+                    if (updatedStoreInfos[user.username] && user.role === 'admin') {
+                        updatedStoreInfos[user.username] = { ...updatedStoreInfos[user.username], isPremium: user.isPremium };
+                    }
+
+                    set({
+                        currentUser: user,
+                        USERS: updatedUsers,
+                        storeInfos: updatedStoreInfos
+                    });
                     get().cleanupStoreData();
                     return 'success';
                 }
@@ -74,6 +104,18 @@ export const useStore = create(
                             bankOwner: '',
                             isPremium: false
                         }
+                    },
+                    storeTables: {
+                        ...state.storeTables,
+                        [username]: ['Mang về', 'Bàn 1']
+                    },
+                    categories: {
+                        ...state.categories,
+                        [username]: [{ id: 'main', name: 'Món Chính' }, { id: 'drink', name: 'Đồ Uống' }]
+                    },
+                    products: {
+                        ...state.products,
+                        [username]: []
                     }
                 }));
             },
@@ -88,17 +130,28 @@ export const useStore = create(
             }),
             addStaff: ({ fullname, phone, username, password, role = 'staff', createdBy }) => set(state => {
                 const isSuperAdmin = state.currentUser?.role === 'sadmin';
-                const currentStaffCount = state.USERS.filter(u => u.role !== 'admin' && u.role !== 'sadmin').length;
-                if (!isSuperAdmin && currentStaffCount >= 1) {
-                    state.showToast('Gói Miễn phí giới hạn tối đa 1 nhân viên. Vui lòng xoá tài khoản nhân viên cũ để tạo mới!', 'error');
-                    return state;
+                const isAdmin = state.currentUser?.role === 'admin';
+                const adminUsername = state.currentUser?.username;
+                const isPremium = state.currentUser?.isPremium;
+
+                // Đếm staff thuộc riêng admin này (không tính toàn hệ thống)
+                if (isAdmin && !isPremium) {
+                    const myStaffCount = state.USERS.filter(u => u.role === 'staff' && u.createdBy === adminUsername).length;
+                    if (myStaffCount >= 1) {
+                        setTimeout(() => get().showConfirm(
+                            'Tài khoản Miễn Phí đã đạt giới hạn 1 nhân viên. Bạn có muốn nâng cấp lên bản trả phí để thêm không giới hạn không?',
+                            () => get().setUpgradeModalOpen(true)
+                        ), 0);
+                        return state;
+                    }
                 }
+
                 if (state.USERS.find(u => u.username === username)) {
-                    state.showToast('Tên đăng nhập đã tồn tại', 'error');
+                    get().showToast('Tên đăng nhập đã tồn tại', 'error');
                     return state;
                 }
                 const newStaff = { username, pass: password, role: role, isPremium: false, fullname, phone, avatar: '', createdBy: createdBy || state.currentUser?.username };
-                state.showToast('Thêm tài khoản thành công!');
+                get().showToast('Thêm tài khoản thành công!');
 
                 const updatedStoreInfos = role === 'admin' ? {
                     ...state.storeInfos,
@@ -114,9 +167,38 @@ export const useStore = create(
                     }
                 } : state.storeInfos;
 
-                return { USERS: [...state.USERS, newStaff], storeInfos: updatedStoreInfos };
+                const updatedStoreTables = role === 'admin' ? {
+                    ...state.storeTables,
+                    [username]: ['Mang về', 'Bàn 1']
+                } : state.storeTables;
+
+                const updatedCategories = role === 'admin' ? {
+                    ...state.categories,
+                    [username]: [{ id: 'main', name: 'Món Chính' }, { id: 'drink', name: 'Đồ Uống' }]
+                } : state.categories;
+
+                const updatedProducts = role === 'admin' ? {
+                    ...state.products,
+                    [username]: []
+                } : state.products;
+
+                return {
+                    USERS: [...state.USERS, newStaff],
+                    storeInfos: updatedStoreInfos,
+                    storeTables: updatedStoreTables,
+                    categories: updatedCategories,
+                    products: updatedProducts
+                };
             }),
             updateUser: (username, updatedData) => set(state => {
+                const existingUser = state.USERS.find(u => u.username === username);
+
+                // Nếu sadmin tắt VIP (isPremium: true → false), tự động báo hết hạn
+                const vipRevoked = existingUser?.isPremium === true && updatedData.isPremium === false;
+                if (vipRevoked) {
+                    updatedData = { ...updatedData, showVipExpired: true };
+                }
+
                 const updatedUsers = state.USERS.map(u =>
                     u.username === username ? { ...u, ...updatedData } : u
                 );
@@ -130,7 +212,7 @@ export const useStore = create(
                     );
                 }
 
-                state.showToast('Cập nhật thông tin thành công!');
+                get().showToast('Cập nhật thông tin thành công!');
                 // Nếu đang update chính mình, cập nhật luôn session currentUser
                 const isSelf = state.currentUser?.username === username;
                 return {
@@ -165,6 +247,25 @@ export const useStore = create(
             confirmDialog: null,
             showConfirm: (message, onConfirm) => set({ confirmDialog: { message, onConfirm } }),
             closeConfirm: () => set({ confirmDialog: null }),
+
+            // Notification System
+            notifications: [],
+            addNotification: (userId, title, message) => set(state => ({
+                notifications: [{
+                    id: Date.now().toString(),
+                    userId,
+                    title,
+                    message,
+                    time: new Date().toISOString(),
+                    read: false
+                }, ...state.notifications]
+            })),
+            markNotificationAsRead: (id) => set(state => ({
+                notifications: state.notifications.map(n => n.id === id ? { ...n, read: true } : n)
+            })),
+            clearNotifications: (userId) => set(state => ({
+                notifications: state.notifications.filter(n => n.userId !== userId)
+            })),
 
             // Upgrade Modal State
             isUpgradeModalOpen: false,
@@ -221,16 +322,60 @@ export const useStore = create(
                     updatedStoreInfos[req.username] = { ...updatedStoreInfos[req.username], isPremium: true };
                 }
 
+                const newNotification = {
+                    id: Date.now().toString(),
+                    userId: req.username,
+                    title: 'Nâng cấp VIP thành công',
+                    message: `Yêu cầu gói ${req.planName} của bạn đã được duyệt. Hạn sử dụng đến ${baseDate.toLocaleDateString('vi-VN')}`,
+                    time: new Date().toISOString(),
+                    read: false
+                };
+
                 return {
                     USERS: newUsers,
                     currentUser: isSelf ? updatedUser : state.currentUser,
                     storeInfos: updatedStoreInfos,
-                    upgradeRequests: state.upgradeRequests.filter(r => r.id !== requestId)
+                    upgradeRequests: state.upgradeRequests.filter(r => r.id !== requestId),
+                    notifications: [newNotification, ...state.notifications]
                 };
             }),
             rejectUpgrade: (requestId) => set(state => {
+                const req = state.upgradeRequests.find(r => r.id === requestId);
+                if (req) {
+                    const newNotification = {
+                        id: Date.now().toString(),
+                        userId: req.username,
+                        title: 'Yêu cầu VIP bị từ chối',
+                        message: `Yêu cầu tự động nâng cấp gói ${req.planName} chưa được duyệt.`,
+                        time: new Date().toISOString(),
+                        read: false
+                    };
+                    state.showToast('Đã từ chối yêu cầu Nâng cấp', 'error');
+                    return {
+                        upgradeRequests: state.upgradeRequests.filter(r => r.id !== requestId),
+                        notifications: [newNotification, ...state.notifications]
+                    };
+                }
                 state.showToast('Đã từ chối yêu cầu Nâng cấp', 'error');
                 return { upgradeRequests: state.upgradeRequests.filter(r => r.id !== requestId) };
+            }),
+
+            clearVipCongrat: (username) => set(state => {
+                const updatedUsers = state.USERS.map(u => u.username === username ? { ...u, showVipCongrat: false } : u);
+                const isSelf = state.currentUser?.username === username;
+                return {
+                    USERS: updatedUsers,
+                    currentUser: isSelf ? { ...state.currentUser, showVipCongrat: false } : state.currentUser
+                };
+            }),
+
+            closeVipExpiredModal: (username) => set(state => {
+                const updatedUsers = state.USERS.map(u => u.username === username ? { ...u, showVipExpired: false } : u);
+                const isSelf = state.currentUser?.username === username;
+                return {
+                    USERS: updatedUsers,
+                    currentUser: isSelf ? { ...state.currentUser, showVipExpired: false } : state.currentUser
+                };
             }),
 
             // Store Info
@@ -284,8 +429,8 @@ export const useStore = create(
                 };
             }),
 
-            categories: [],
-            products: [],
+            categories: { 'sadmin': [{ id: 'main', name: 'Món Chính' }, { id: 'drink', name: 'Đồ Uống' }] },
+            products: { 'sadmin': [] },
             bestSellers: [],
             cart: [],
             orders: [],
@@ -302,7 +447,7 @@ export const useStore = create(
                 set({ toast: { message, type } });
                 setTimeout(() => {
                     set(state => state.toast?.message === message ? { toast: null } : state);
-                }, 3000);
+                }, 1800);
             },
 
             toggleTheme: () => set(state => {
@@ -378,18 +523,31 @@ export const useStore = create(
             checkoutOrder: (paymentStatus = 'unpaid') => set(state => {
                 if (state.cart.length === 0) return state;
 
-                // Check giới hạn 10 đơn/ngày cho mỗi user
-                const todayStr = new Date().toDateString();
-                const totalOrdersToday = state.orders.filter(
-                    o => o.createdBy === state.currentUser?.username && new Date(o.time).toDateString() === todayStr
-                ).length;
+                // Check giới hạn 10 đơn/ngày - chỉ áp dụng cho tài khoản miễn phí
+                const isPremium = state.currentUser?.isPremium;
+                const isSadmin = state.currentUser?.role === 'sadmin';
 
-                if (totalOrdersToday >= 10) {
-                    state.showToast('Bạn đã đạt giới hạn 10 đơn/ngày của Gói cơ bản', 'error');
-                    return state;
+                if (!isPremium && !isSadmin) {
+                    const todayStr = new Date().toDateString();
+                    // Đếm đơn hôm nay của cửa hàng (admin + staff của cửa hàng đó)
+                    const storeOwner = state.currentUser?.role === 'staff' ? state.currentUser?.createdBy : state.currentUser?.username;
+                    const storeUsers = state.USERS
+                        .filter(u => u.username === storeOwner || u.createdBy === storeOwner)
+                        .map(u => u.username);
+                    const totalOrdersToday = state.orders.filter(
+                        o => storeUsers.includes(o.createdBy) && new Date(o.time).toDateString() === todayStr
+                    ).length;
+
+                    if (totalOrdersToday >= 10) {
+                        setTimeout(() => get().showConfirm(
+                            'Cửa hàng đã đạt 10 đơn hôm nay (giới hạn Gói Miễn Phí). Bạn có muốn nâng cấp lên bản trả phí để tạo đơn không giới hạn không?',
+                            () => get().setUpgradeModalOpen(true)
+                        ), 0);
+                        return state;
+                    }
                 }
 
-                const totalAmount = state.getCartTotal(); // Bỏ VAT
+                const totalAmount = get().getCartTotal();
                 const newOrder = {
                     id: `ORD-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
                     table: state.selectedTable,
@@ -399,7 +557,7 @@ export const useStore = create(
                     time: new Date().toISOString(),
                     totalAmount,
                     createdBy: state.currentUser?.username || 'unknown',
-                    storeId: state.getStoreId()
+                    storeId: get().getStoreId()
                 };
                 return {
                     orders: [newOrder, ...state.orders],
@@ -408,15 +566,95 @@ export const useStore = create(
             }),
 
             // Quản lý Thực Đơn
-            updateProduct: (updatedProduct) => set(state => ({
-                products: state.products.map(p => p.id === updatedProduct.id ? updatedProduct : p)
-            })),
-            deleteProduct: (productId) => set(state => ({
-                products: state.products.filter(p => p.id !== productId)
-            })),
-            addProduct: (product) => set(state => ({
-                products: [{ ...product, id: Date.now() }, ...state.products]
-            })),
+            updateProduct: (updatedProduct) => set(state => {
+                const storeId = state.getStoreId();
+                const currentProducts = state.products[storeId] || [];
+                return {
+                    products: {
+                        ...state.products,
+                        [storeId]: currentProducts.map(p => p.id === updatedProduct.id ? updatedProduct : p)
+                    }
+                };
+            }),
+            deleteProduct: (productId) => set(state => {
+                const storeId = state.getStoreId();
+                const currentProducts = state.products[storeId] || [];
+                return {
+                    products: {
+                        ...state.products,
+                        [storeId]: currentProducts.filter(p => p.id !== productId)
+                    }
+                };
+            }),
+            addProduct: (product) => set(state => {
+                const storeId = get().getStoreId();
+                const currentProducts = state.products[storeId] || [];
+                const isPremium = state.currentUser?.isPremium;
+                const isSadmin = state.currentUser?.role === 'sadmin';
+
+                if (!isPremium && !isSadmin && currentProducts.length >= 5) {
+                    setTimeout(() => get().showConfirm(
+                        'Tài khoản Miễn Phí đã đạt giới hạn 5 món ăn. Bạn có muốn nâng cấp lên bản trả phí để thêm không giới hạn không?',
+                        () => get().setUpgradeModalOpen(true)
+                    ), 0);
+                    return state;
+                }
+
+                return {
+                    products: {
+                        ...state.products,
+                        [storeId]: [{ ...product, id: Date.now().toString() }, ...currentProducts]
+                    }
+                };
+            }),
+
+            // Quản lý Danh Mục
+            addCategory: (categoryName) => set(state => {
+                const storeId = get().getStoreId();
+                const currentCategories = state.categories[storeId] || [];
+                const isPremium = state.currentUser?.isPremium;
+                const isSadmin = state.currentUser?.role === 'sadmin';
+
+                if (!isPremium && !isSadmin && currentCategories.length >= 2) {
+                    setTimeout(() => get().showConfirm(
+                        'Tài khoản Miễn Phí đã đạt giới hạn 2 phân loại. Bạn có muốn nâng cấp lên bản trả phí để thêm không giới hạn không?',
+                        () => get().setUpgradeModalOpen(true)
+                    ), 0);
+                    return state;
+                }
+
+                return {
+                    categories: {
+                        ...state.categories,
+                        [storeId]: [...currentCategories, { id: 'cat_' + Date.now().toString(), name: categoryName }]
+                    }
+                };
+            }),
+            updateCategory: (updatedCategory) => set(state => {
+                const storeId = get().getStoreId();
+                const currentCategories = state.categories[storeId] || [];
+                return {
+                    categories: {
+                        ...state.categories,
+                        [storeId]: currentCategories.map(c => c.id === updatedCategory.id ? updatedCategory : c)
+                    }
+                };
+            }),
+            deleteCategory: (categoryId) => set(state => {
+                const storeId = get().getStoreId();
+                const currentCategories = state.categories[storeId] || [];
+                const currentProducts = state.products[storeId] || [];
+                return {
+                    categories: {
+                        ...state.categories,
+                        [storeId]: currentCategories.filter(c => c.id !== categoryId)
+                    },
+                    products: {
+                        ...state.products,
+                        [storeId]: currentProducts.map(p => p.category === categoryId ? { ...p, category: '' } : p)
+                    }
+                };
+            }),
 
             getCartTotal: () => {
                 const { cart } = get();
@@ -425,16 +663,30 @@ export const useStore = create(
         }),
         {
             name: 'pos-store-v1', // unique name
-            version: 2,
+            version: 3,
             migrate: (persistedState, version) => {
-                if (version !== 2) {
+                if (version < 2) {
                     persistedState.USERS = [
                         { username: 'sadmin', pass: '1', role: 'sadmin', fullname: 'Super Admin', avatar: '', isPremium: true },
                         { username: 'nv1', pass: '1', role: 'staff', fullname: 'Nhân viên 1', avatar: '', createdBy: 'sadmin' }
                     ];
+                }
+                if (version < 3) {
+                    persistedState.categories = { 'sadmin': [{ id: 'main', name: 'Món Chính' }, { id: 'drink', name: 'Đồ Uống' }] };
+                    persistedState.products = { 'sadmin': [] };
                 }
                 return persistedState;
             }
         }
     )
 );
+
+// Derived Hook để Reactivity với User và StoreView
+export const useStoreId = () => useStore(state => {
+    const user = state.currentUser;
+    if (!user) return 'sadmin';
+    if (user.role === 'sadmin') {
+        return state.sadminViewStoreId === 'all' ? 'sadmin' : state.sadminViewStoreId;
+    }
+    return user.role === 'staff' ? user.createdBy : user.username;
+});

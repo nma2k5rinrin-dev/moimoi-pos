@@ -1,5 +1,5 @@
 import React from 'react';
-import { useStore } from '../../../store/useStore';
+import { useStore, useStoreId } from '../../../store/useStore';
 import { formatCurrency } from '../../../utils/format';
 import { Trash2, Minus, Plus, ShoppingBag, Edit3, X, CreditCard, Banknote, QrCode } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -20,9 +20,8 @@ export function Cart() {
     const checkoutOrder = useStore(state => state.checkoutOrder);
     const showToast = useStore(state => state.showToast);
     const currentUser = useStore(state => state.currentUser);
-    const getStoreId = useStore(state => state.getStoreId);
     const sadminViewStoreId = useStore(state => state.sadminViewStoreId);
-    const storeId = getStoreId();
+    const storeId = useStoreId();
 
     const tables = useStore(state => state.storeTables[storeId] || []);
     const addNote = useStore(state => state.addNote);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useStore } from '../../../store/useStore';
+import { useStore, useStoreId } from '../../../store/useStore';
 import { formatCurrency } from '../../../utils/format';
 import { ShoppingBag, X, Plus, Minus, Trash2, Edit3, CreditCard, Banknote, QrCode } from 'lucide-react';
 import { clsx } from "clsx";
@@ -21,9 +21,8 @@ export function MobileCart() {
     const checkoutOrder = useStore(state => state.checkoutOrder);
     const showToast = useStore(state => state.showToast);
     const currentUser = useStore(state => state.currentUser);
-    const getStoreId = useStore(state => state.getStoreId);
     const sadminViewStoreId = useStore(state => state.sadminViewStoreId);
-    const storeId = getStoreId();
+    const storeId = useStoreId();
 
     const tables = useStore(state => state.storeTables[storeId] || []);
     const addNote = useStore(state => state.addNote);
@@ -217,14 +216,16 @@ export function MobileCart() {
 
                 {/* Checkout Modal (Mobile) */}
                 {showCheckoutModal && (
-                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex flex-col justify-end animate-fade-in" onClick={() => setShowCheckoutModal(false)}>
-                        <div className="bg-white rounded-t-3xl w-full overflow-hidden shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
-                            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex flex-col justify-end animate-fade-in" onClick={() => setShowCheckoutModal(false)}>
+                        <div className="bg-white rounded-t-3xl w-full shadow-2xl animate-slide-up flex flex-col" style={{ maxHeight: 'calc(100dvh - 56px)' }} onClick={e => e.stopPropagation()}>
+                            {/* Header */}
+                            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-3xl shrink-0">
                                 <h3 className="text-lg font-bold text-slate-800 ml-2">Xác nhận thanh toán</h3>
                                 <button onClick={() => setShowCheckoutModal(false)} className="p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-600 rounded-xl transition-colors bg-white shadow-sm border border-slate-100"><X className="w-5 h-5" /></button>
                             </div>
-                            <div className="p-6 flex flex-col items-center gap-6 max-h-[80vh] overflow-y-auto pb-28 border-t-4 border-emerald-500/20">
 
+                            {/* Scrollable Content */}
+                            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center gap-5 border-t-4 border-emerald-500/20">
                                 <div className="text-center space-y-1 w-full flex flex-col items-center">
                                     <p className="text-slate-500 text-sm font-semibold">Cần thanh toán</p>
                                     <p className="text-4xl font-black text-emerald-600 tracking-tight">{formatCurrency(totalAmount)}</p>
@@ -236,10 +237,10 @@ export function MobileCart() {
                                                 <QrCode className="w-4 h-4" />
                                                 <p className="text-xs font-bold uppercase tracking-wider">Mã VietQR động</p>
                                             </div>
-                                            <div className="bg-white p-2.5 rounded-2xl shadow-sm border border-blue-100/50">
+                                            <div className="bg-white p-3 rounded-2xl shadow-sm border border-blue-100/50">
                                                 <img
                                                     src={`https://img.vietqr.io/image/${storeInfo.bankId}-${storeInfo.bankAccount}-compact2.png?amount=${totalAmount}&addInfo=Ban ${selectedTable}&accountName=${storeInfo.bankOwner}`}
-                                                    className="w-48 h-48 sm:w-56 sm:h-56 object-contain mix-blend-multiply"
+                                                    className="w-64 h-64 object-contain mix-blend-multiply"
                                                     alt="VietQR code"
                                                 />
                                             </div>
@@ -250,33 +251,34 @@ export function MobileCart() {
                                         </div>
                                     )}
                                 </div>
+                            </div>
 
-                                <div className="flex flex-col gap-3 w-full mt-2">
-                                    <button
-                                        onClick={() => {
-                                            checkoutOrder('paid');
-                                            setShowCheckoutModal(false);
-                                            setIsOpen(false);
-                                            showToast("Đã chốt đơn và thu tiền thành công!");
-                                        }}
-                                        className="w-full flex items-center justify-center gap-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-emerald-500/30 transition-all text-base"
-                                    >
-                                        <Banknote className="w-6 h-6" />
-                                        Đã nhận Tiền mặt / CK
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            checkoutOrder('unpaid');
-                                            setShowCheckoutModal(false);
-                                            setIsOpen(false);
-                                            showToast("Đã lên món (Cho khách nợ / Thanh toán sau)");
-                                        }}
-                                        className="w-full flex items-center justify-center gap-3 bg-orange-50 active:bg-orange-100 border-2 border-orange-200 text-orange-600 py-3.5 rounded-xl font-bold transition-all text-base shadow-sm"
-                                    >
-                                        <CreditCard className="w-6 h-6" />
-                                        Ghi sổ / Thanh toán sau
-                                    </button>
-                                </div>
+                            {/* Sticky Action Buttons - luôn hiển thị, không bị che */}
+                            <div className="shrink-0 p-4 pt-3 bg-white border-t border-slate-100 flex flex-col gap-3 pb-6">
+                                <button
+                                    onClick={() => {
+                                        checkoutOrder('paid');
+                                        setShowCheckoutModal(false);
+                                        setIsOpen(false);
+                                        showToast("Đã chốt đơn và thu tiền thành công!");
+                                    }}
+                                    className="w-full flex items-center justify-center gap-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-emerald-500/30 transition-all text-base"
+                                >
+                                    <Banknote className="w-6 h-6" />
+                                    Đã nhận Tiền mặt / CK
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        checkoutOrder('unpaid');
+                                        setShowCheckoutModal(false);
+                                        setIsOpen(false);
+                                        showToast("Đã lên món (Cho khách nợ / Thanh toán sau)");
+                                    }}
+                                    className="w-full flex items-center justify-center gap-3 bg-orange-50 active:bg-orange-100 border-2 border-orange-200 text-orange-600 py-3.5 rounded-xl font-bold transition-all text-base shadow-sm"
+                                >
+                                    <CreditCard className="w-6 h-6" />
+                                    Ghi sổ / Thanh toán sau
+                                </button>
                             </div>
                         </div>
                     </div>
