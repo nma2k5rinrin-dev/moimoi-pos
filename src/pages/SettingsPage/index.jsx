@@ -23,7 +23,9 @@ import {
     Tags,
     KeyRound,
     UserCircle,
-    ShieldCheck
+    ShieldCheck,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 import { useStore, useStoreId } from '../../store/useStore';
 import { clsx } from 'clsx';
@@ -53,6 +55,9 @@ function AccountSettings({ onBack }) {
     const [newPass, setNewPass] = useState('');
     const [confirmPass, setConfirmPass] = useState('');
     const [saving, setSaving] = useState(false);
+    const [showOldPass, setShowOldPass] = useState(false);
+    const [showNewPass, setShowNewPass] = useState(false);
+    const [showConfirmPass, setShowConfirmPass] = useState(false);
     const [profileForm, setProfileForm] = useState({ fullname: currentUser?.fullname || '', phone: currentUser?.phone || '' });
 
     const handleChangePassword = async (e) => {
@@ -135,28 +140,40 @@ function AccountSettings({ onBack }) {
                         <label className="text-sm font-semibold text-slate-700">Mật khẩu hiện tại</label>
                         <div className="relative">
                             <KeyRound className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
-                            <input type="password" value={oldPass} onChange={e => setOldPass(e.target.value)}
-                                className="w-full h-11 pl-10 pr-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium"
+                            <input type={showOldPass ? 'text' : 'password'} value={oldPass} onChange={e => setOldPass(e.target.value)}
+                                className="w-full h-11 pl-10 pr-10 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium"
                                 placeholder="Nhập mật khẩu đang dùng" />
+                            <button type="button" onClick={() => setShowOldPass(v => !v)} tabIndex={-1}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
+                                {showOldPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
                         </div>
                     </div>
                     <div className="space-y-1">
                         <label className="text-sm font-semibold text-slate-700">Mật khẩu mới</label>
                         <div className="relative">
                             <KeyRound className="absolute left-3 top-3 w-5 h-5 text-emerald-400" />
-                            <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)}
-                                className="w-full h-11 pl-10 pr-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium"
+                            <input type={showNewPass ? 'text' : 'password'} value={newPass} onChange={e => setNewPass(e.target.value)}
+                                className="w-full h-11 pl-10 pr-10 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium"
                                 placeholder="Mật khẩu mới" />
+                            <button type="button" onClick={() => setShowNewPass(v => !v)} tabIndex={-1}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-emerald-500">
+                                {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
                         </div>
                     </div>
                     <div className="space-y-1">
                         <label className="text-sm font-semibold text-slate-700">Xác nhận mật khẩu mới</label>
                         <div className="relative">
                             <KeyRound className="absolute left-3 top-3 w-5 h-5 text-emerald-400" />
-                            <input type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)}
-                                className={cn('w-full h-11 pl-10 pr-4 bg-slate-50 border rounded-xl outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium',
+                            <input type={showConfirmPass ? 'text' : 'password'} value={confirmPass} onChange={e => setConfirmPass(e.target.value)}
+                                className={cn('w-full h-11 pl-10 pr-10 bg-slate-50 border rounded-xl outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium',
                                     confirmPass && newPass !== confirmPass ? 'border-red-400 bg-red-50/30' : 'border-slate-200 focus:border-emerald-500')}
                                 placeholder="Nhập lại mật khẩu mới" />
+                            <button type="button" onClick={() => setShowConfirmPass(v => !v)} tabIndex={-1}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-emerald-500">
+                                {showConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
                         </div>
                         {confirmPass && newPass !== confirmPass && (
                             <p className="text-xs text-red-500 font-medium">⚠️ Mật khẩu xác nhận không khớp</p>

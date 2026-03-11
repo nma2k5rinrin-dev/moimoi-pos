@@ -238,13 +238,23 @@ export const useStore = create((set, get) => ({
         return 'success';
     },
 
-    logout: () => set({
-        currentUser: null,
-        USERS: [], storeInfos: {}, storeTables: {},
-        categories: {}, products: {}, orders: [],
-        notifications: [], upgradeRequests: [],
-        cart: [], selectedTable: '',
-    }),
+    logout: () => {
+        // Khi không có Supabase: giữ USERS trong bộ nhớ (bảo tồn mật khẩu đã đổi)
+        // Khi có Supabase: reset USERS vì sẽ lấy lại từ DB lúc login
+        const base = {
+            currentUser: null,
+            storeInfos: { sadmin: DEFAULT_STORE_INFO }, storeTables: { sadmin: [] },
+            categories: { sadmin: [] }, products: { sadmin: [] }, orders: [],
+            notifications: [], upgradeRequests: [],
+            cart: [], selectedTable: '',
+        };
+        if (!isSupabaseConfigured()) {
+            // Giữ lại USERS (đã bao gồm mật khẩu mới nếu đã đổi)
+            useStore.setState(base);
+        } else {
+            useStore.setState({ ...base, USERS: [] });
+        }
+    },
 
     updateUserAvatar: async (avatarUrl) => {
         const { currentUser } = get();

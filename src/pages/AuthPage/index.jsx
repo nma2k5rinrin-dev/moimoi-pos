@@ -1,7 +1,7 @@
 ﻿import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, useStoreId } from '../../store/useStore';
-import { Store, User, Lock, LogIn, UserPlus, Phone, Briefcase, BadgeCheck, KeyRound, ArrowLeft, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Store, User, Lock, LogIn, UserPlus, Phone, Briefcase, BadgeCheck, KeyRound, ArrowLeft, CheckCircle, XCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 
 // ─── Forgot Password View ────────────────────────────────────────────────────
 function ForgotPasswordView({ onBack, onRegister }) {
@@ -179,6 +179,7 @@ export default function AuthPage() {
     const navigate = useNavigate();
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -316,12 +317,20 @@ export default function AuthPage() {
                                             <Lock className="w-5 h-5 text-slate-400" />
                                         </div>
                                         <input
-                                            type="password"
+                                            type={showPassword ? 'text' : 'password'}
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
-                                            className="w-full pl-10 h-11 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all text-slate-800 font-medium"
+                                            className="w-full pl-10 pr-10 h-11 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all text-slate-800 font-medium"
                                             placeholder="••••••••"
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(v => !v)}
+                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                                            tabIndex={-1}
+                                        >
+                                            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                        </button>
                                     </div>
                                 </div>
 
