@@ -59,13 +59,22 @@ const mapUpgradeReq = (r) => r ? ({
     time: r.time,
 }) : null;
 
+// Check xem Supabase đã được cấu hình thật chưa
+const isSupabaseConfigured = () => {
+    const url = import.meta.env.VITE_SUPABASE_URL || '';
+    return url.length > 0 && !url.includes('xxx.supabase.co') && url.startsWith('https://');
+};
+
 // ============================================================
 // Store
 // ============================================================
 export const useStore = create((set, get) => ({
     // ── Auth & Users ─────────────────────────────────────────
     currentUser: null,
-    USERS: [],
+    // Local fallback users (dùng khi chưa kết nối Supabase)
+    USERS: [
+        { username: 'sadmin', pass: '1', role: 'sadmin', fullname: 'Super Admin', avatar: '', isPremium: true },
+    ],
     isLoading: false,
 
     getStoreId: () => {
@@ -146,30 +155,53 @@ export const useStore = create((set, get) => ({
 
     login: async (username, pass) => {
         const cleanUsername = username.toLowerCase().replace(/\s/g, '');
-        const { data: users, error } = await supabase
-            .from('users')
-            .select('*')
-            .ilike('username', cleanUsername);
 
-        if (error || !users?.length) return 'invalid';
-
-        const rawUser = users.find(u => u.pass === pass);
-        if (!rawUser) return 'invalid';
-
-        let user = mapUser(rawUser);
-
-        // Kiểm tra hạn dùng
-        if (user.role === 'admin' && user.expiresAt) {
-            const isExpired = Date.now() > new Date(user.expiresAt).getTime();
-            if (isExpired && user.isPremium) {
-                user = { ...user, isPremium: false, showVipExpired: true };
-                await supabase.from('users').update({ is_premium: false, show_vip_expired: true }).eq('username', user.username);
-            }
+        // ── Fallback local khi Supabase chưa cấu hình ─────
+        if (!isSupabaseConfigured()) {
+            const localUser = get().USERS.find(u =>
+                u.username.toLowerCase() === cleanUsername && u.pass === pass
+            );
+            if (!localUser) return 'invalid';
+            set({ currentUser: localUser });
+            // Tải data local (rỗng, không có Supabase)
+            set({
+                storeInfos: { sadmin: { name: 'Nhà Hàng Của Tôi', phone: '', address: '', logoUrl: '', bankId: '', bankAccount: '', bankOwner: '', isPremium: true } },
+                storeTables: { sadmin: [] }, categories: { sadmin: [] }, products: { sadmin: [] },
+                orders: [], notifications: [], upgradeRequests: []
+            });
+            return 'success';
         }
 
-        set({ currentUser: user });
-        await get().loadInitialData(user);
-        return 'success';
+        // ── Supabase login ─────────────────────────────────
+        try {
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('*')
+                .ilike('username', cleanUsername);
+
+            if (error || !users?.length) return 'invalid';
+
+            const rawUser = users.find(u => u.pass === pass);
+            if (!rawUser) return 'invalid';
+
+            let user = mapUser(rawUser);
+
+            // Kiểm tra hạn dùng
+            if (user.role === 'admin' && user.expiresAt) {
+                const isExpired = Date.now() > new Date(user.expiresAt).getTime();
+                if (isExpired && user.isPremium) {
+                    user = { ...user, isPremium: false, showVipExpired: true };
+                    await supabase.from('users').update({ is_premium: false, show_vip_expired: true }).eq('username', user.username);
+                }
+            }
+
+            set({ currentUser: user });
+            await get().loadInitialData(user);
+            return 'success';
+        } catch (e) {
+            console.error('[login]', e);
+            return 'invalid';
+        }
     },
 
     register: async ({ fullname, phone, storeName, username, password }) => {

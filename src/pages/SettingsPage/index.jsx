@@ -20,7 +20,10 @@ import {
     UserPlus,
     Edit2,
     X,
-    Tags
+    Tags,
+    KeyRound,
+    UserCircle,
+    ShieldCheck
 } from 'lucide-react';
 import { useStore, useStoreId } from '../../store/useStore';
 import { clsx } from 'clsx';
@@ -31,6 +34,7 @@ function cn(...inputs) {
 }
 
 const SETTING_MENUS = [
+    { id: 'account', name: 'Tài Khoản Cá Nhân', icon: UserCircle, desc: 'Đổi mật khẩu, thông tin cá nhân' },
     { id: 'general', name: 'Thông Tin Cửa Hàng', icon: Store, desc: 'Tên quán, địa chỉ, số điện thoại' },
     { id: 'menu', name: 'Quản Lý Thực Đơn', icon: MenuSquare, desc: 'Thêm/sửa món ăn, danh mục' },
     { id: 'tables', name: 'Quản Lý Bàn & Khu Vực', icon: LayoutGrid, desc: 'Thiết lập danh sách bàn Order' },
@@ -38,6 +42,137 @@ const SETTING_MENUS = [
     { id: 'printer', name: 'Máy In & Hoá Đơn', icon: Printer, desc: 'Kết nối máy in bill, in bếp' },
     { id: 'backup', name: 'Lưu Trữ & Phục Hồi', icon: DatabaseBackup, desc: 'Sao lưu dữ liệu đám mây' },
 ];
+
+// ─── Account / Password Change ───────────────────────────────────────
+function AccountSettings({ onBack }) {
+    const currentUser = useStore(s => s.currentUser);
+    const updateUser = useStore(s => s.updateUser);
+    const showToast = useStore(s => s.showToast);
+
+    const [oldPass, setOldPass] = useState('');
+    const [newPass, setNewPass] = useState('');
+    const [confirmPass, setConfirmPass] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [profileForm, setProfileForm] = useState({ fullname: currentUser?.fullname || '', phone: currentUser?.phone || '' });
+
+    const handleChangePassword = async (e) => {
+        e.preventDefault();
+        if (oldPass !== currentUser?.pass) { showToast('Mật khẩu hiện tại không đúng', 'error'); return; }
+        if (!newPass) { showToast('Mật khẩu mới không được để trống', 'error'); return; }
+        if (newPass !== confirmPass) { showToast('Xác nhận mật khẩu không khớp', 'error'); return; }
+        setSaving(true);
+        try {
+            await updateUser(currentUser.username, { pass: newPass });
+            showToast('Thay đổi mật khẩu thành công!');
+            setOldPass(''); setNewPass(''); setConfirmPass('');
+        } finally { setSaving(false); }
+    };
+
+    const handleSaveProfile = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        try { await updateUser(currentUser.username, profileForm); }
+        finally { setSaving(false); }
+    };
+
+    return (
+        <div className="flex-1 overflow-y-auto p-6 lg:p-10 animate-fade-in max-w-3xl space-y-6">
+            {/* Profile Info */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <div className="flex items-center gap-4 mb-6">
+                    <button onClick={onBack} className="md:hidden p-2 -ml-2 text-slate-400 hover:text-slate-600">
+                        <ChevronLeft className="w-6 h-6" />
+                    </button>
+                    <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center">
+                        <UserCircle className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-800">Thông Tin Cá Nhân</h2>
+                        <p className="text-xs text-slate-500">Tên hiển thị và số liên hệ</p>
+                    </div>
+                </div>
+                <form onSubmit={handleSaveProfile} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-sm font-semibold text-slate-700">Họ và Tên</label>
+                            <input type="text" value={profileForm.fullname} onChange={e => setProfileForm(p => ({ ...p, fullname: e.target.value }))}
+                                className="w-full h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium text-slate-800"
+                                placeholder="Nguyễn Văn A" />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-sm font-semibold text-slate-700">Số Điện Thoại</label>
+                            <input type="tel" value={profileForm.phone} onChange={e => setProfileForm(p => ({ ...p, phone: e.target.value }))}
+                                className="w-full h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium text-slate-800"
+                                placeholder="0987..." />
+                        </div>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm">
+                        <span className="text-slate-500">Tên đăng nhập: </span>
+                        <span className="font-bold text-slate-800 font-mono">@{currentUser?.username}</span>
+                        <span className="ml-3 text-slate-400 text-xs">(không thể thay đổi)</span>
+                    </div>
+                    <div className="flex justify-end">
+                        <button type="submit" disabled={saving} className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold shadow-md shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-60 flex items-center gap-2">
+                            <Save className="w-4 h-4" />{saving ? 'Đang lưu...' : 'Lưu Thông Tin'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {/* Password Change */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center">
+                        <ShieldCheck className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-800">Đổi Mật Khẩu</h2>
+                        <p className="text-xs text-slate-500">Bảo mật tài khoản của bạn</p>
+                    </div>
+                </div>
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                    <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-700">Mật khẩu hiện tại</label>
+                        <div className="relative">
+                            <KeyRound className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
+                            <input type="password" value={oldPass} onChange={e => setOldPass(e.target.value)}
+                                className="w-full h-11 pl-10 pr-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium"
+                                placeholder="Nhập mật khẩu đang dùng" />
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-700">Mật khẩu mới</label>
+                        <div className="relative">
+                            <KeyRound className="absolute left-3 top-3 w-5 h-5 text-emerald-400" />
+                            <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)}
+                                className="w-full h-11 pl-10 pr-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium"
+                                placeholder="Mật khẩu mới" />
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-700">Xác nhận mật khẩu mới</label>
+                        <div className="relative">
+                            <KeyRound className="absolute left-3 top-3 w-5 h-5 text-emerald-400" />
+                            <input type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)}
+                                className={cn('w-full h-11 pl-10 pr-4 bg-slate-50 border rounded-xl outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium',
+                                    confirmPass && newPass !== confirmPass ? 'border-red-400 bg-red-50/30' : 'border-slate-200 focus:border-emerald-500')}
+                                placeholder="Nhập lại mật khẩu mới" />
+                        </div>
+                        {confirmPass && newPass !== confirmPass && (
+                            <p className="text-xs text-red-500 font-medium">⚠️ Mật khẩu xác nhận không khớp</p>
+                        )}
+                    </div>
+                    <div className="flex justify-end pt-2">
+                        <button type="submit" disabled={saving || !oldPass || !newPass || !confirmPass}
+                            className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold shadow-md shadow-amber-500/20 transition-all active:scale-95 disabled:opacity-60 flex items-center gap-2">
+                            <ShieldCheck className="w-4 h-4" />{saving ? 'Đang cập nhật...' : 'Cập Nhật Mật Khẩu'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
 
 function TableManagement({ onBack }) {
     const storeId = useStoreId();
@@ -914,13 +1049,15 @@ export default function SettingsPage() {
                     </div>
                 )}
 
+                {activeMenu === 'account' && <AccountSettings onBack={() => setIsMobileDetailOpen(false)} />}
+
                 {activeMenu === 'menu' && <MenuManagement onBack={() => setIsMobileDetailOpen(false)} />}
 
                 {activeMenu === 'tables' && <TableManagement onBack={() => setIsMobileDetailOpen(false)} />}
 
                 {activeMenu === 'users' && <UserManagement onBack={() => setIsMobileDetailOpen(false)} />}
 
-                {activeMenu !== 'general' && activeMenu !== 'menu' && activeMenu !== 'tables' && activeMenu !== 'users' && (
+                {!['general', 'menu', 'tables', 'users', 'account'].includes(activeMenu) && (
                     <div className="flex-1 flex flex-col items-center justify-center p-6 text-slate-400 animate-fade-in">
                         <Store className="w-20 h-20 mb-4 opacity-20" />
                         <h3 className="text-lg font-medium text-slate-500">Chức năng này đang được phát triển</h3>
