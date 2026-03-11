@@ -27,6 +27,7 @@ const TIME_RANGES = [
     { id: 'today', label: 'Hôm nay' },
     { id: 'month', label: 'Tháng này' },
     { id: 'year', label: 'Năm nay' },
+    { id: 'range', label: 'Khoảng ngày' },
 ];
 
 export default function DashboardPage() {
@@ -36,22 +37,19 @@ export default function DashboardPage() {
     const USERS = useStore(state => state.USERS);
     const [timeRange, setTimeRange] = useState('today');
     const [customDate, setCustomDate] = useState(new Date().toISOString().split('T')[0]);
+    const [dateFrom, setDateFrom] = useState(new Date().toISOString().split('T')[0]);
+    const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
     const [activeModal, setActiveModal] = useState(null);
 
-    // Tính toán tất cả đơn hợp lệ của Quán (Sadmin thì xem được tất cả)
+    // Chỉ tính đơn đã thu tiền vào doanh thu
     const allValidOrders = React.useMemo(() => {
         return orders.filter(o => {
-            const isStatusMatch = o.status === 'completed' || o.paymentStatus === 'paid';
+            const isPaid = o.paymentStatus === 'paid';
             const isStoreMatch = currentUser?.role === 'sadmin' ? true : (o.storeId === storeId || (!o.storeId && storeId === 'sadmin'));
-            return isStatusMatch && isStoreMatch;
+            return isPaid && isStoreMatch;
         });
     }, [orders, currentUser, storeId]);
 
-    // Trích xuất đơn theo khoảng thời gian
-    let targetDateStr = new Date().toDateString();
-    if (timeRange === 'custom') {
-        targetDateStr = new Date(customDate).toDateString();
-    }
 
     const currentFilteredOrders = React.useMemo(() => {
         const today = new Date();
@@ -60,10 +58,17 @@ export default function DashboardPage() {
             if (timeRange === 'today') return orderDate.toDateString() === today.toDateString();
             if (timeRange === 'month') return orderDate.getMonth() === today.getMonth() && orderDate.getFullYear() === today.getFullYear();
             if (timeRange === 'year') return orderDate.getFullYear() === today.getFullYear();
-            if (timeRange === 'custom') return orderDate.toDateString() === targetDateStr;
+            if (timeRange === 'custom') return orderDate.toDateString() === new Date(customDate).toDateString();
+            if (timeRange === 'range') {
+                const from = new Date(dateFrom);
+                from.setHours(0, 0, 0, 0);
+                const to = new Date(dateTo);
+                to.setHours(23, 59, 59, 999);
+                return orderDate >= from && orderDate <= to;
+            }
             return false;
         });
-    }, [allValidOrders, timeRange, targetDateStr]);
+    }, [allValidOrders, timeRange, customDate, dateFrom, dateTo]);
 
     const revenueByTable = currentFilteredOrders.reduce((acc, order) => {
         const tableName = order.table || 'Mang về';
@@ -82,6 +87,11 @@ export default function DashboardPage() {
         if (range === 'month') revenueLabel = 'Doanh thu tháng này';
         if (range === 'year') revenueLabel = 'Doanh thu năm nay';
         if (range === 'custom') revenueLabel = 'Doanh thu ngày tuỳ chọn';
+        if (range === 'range') {
+            const fmtFrom = new Date(dateFrom).toLocaleDateString('vi-VN');
+            const fmtTo = new Date(dateTo).toLocaleDateString('vi-VN');
+            revenueLabel = dateFrom === dateTo ? `Doanh thu ${fmtFrom}` : `Doanh thu ${fmtFrom} – ${fmtTo}`;
+        }
 
         return [
             { label: revenueLabel, value: extraRevenue, trend: 0, isUp: true, icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-50' },
@@ -157,31 +167,44 @@ export default function DashboardPage() {
                 <h1 className="text-2xl lg:text-3xl font-bold text-slate-800">Thống Kê Doanh Thu</h1>
 
                 {/* Time Filter */}
-                <div className="flex items-center p-1 bg-white border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
-                    {TIME_RANGES.map(range => (
-                        <button
-                            key={range.id}
-                            onClick={() => setTimeRange(range.id)}
-                            className={cn(
-                                "px-4 py-2 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
-                                timeRange === range.id ? "bg-slate-800 text-white shadow-md shadow-slate-800/20" : "text-slate-500 hover:bg-slate-50"
-                            )}
-                        >
-                            {range.label}
-                        </button>
-                    ))}
-                    <div className="flex items-center ml-2 border-l border-slate-100 pl-2">
-                        <CalendarDays className="w-4 h-4 text-slate-400 mr-2" />
-                        <input
-                            type="date"
-                            className="px-3 py-1.5 rounded-lg border border-transparent text-sm font-semibold text-slate-700 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all bg-slate-50 hover:bg-slate-100 cursor-pointer"
-                            value={customDate}
-                            onChange={(e) => {
-                                setCustomDate(e.target.value);
-                                setTimeRange('custom');
-                            }}
-                        />
+                <div className="flex flex-wrap items-center gap-2">
+                    {/* Quick range tabs */}
+                    <div className="flex p-1 bg-white border border-slate-200 rounded-xl shadow-sm">
+                        {TIME_RANGES.map(range => (
+                            <button
+                                key={range.id}
+                                onClick={() => setTimeRange(range.id)}
+                                className={cn(
+                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
+                                    timeRange === range.id ? "bg-slate-800 text-white shadow-md shadow-slate-800/20" : "text-slate-500 hover:bg-slate-50"
+                                )}
+                            >
+                                {range.label}
+                            </button>
+                        ))}
                     </div>
+
+                    {/* Date range pickers — hiện khi chọn "Khoảng ngày" */}
+                    {timeRange === 'range' && (
+                        <div className="flex items-center gap-2 bg-white border border-emerald-300 rounded-xl px-3 py-1.5 shadow-sm animate-fade-in">
+                            <CalendarDays className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <input
+                                type="date"
+                                value={dateFrom}
+                                max={dateTo}
+                                onChange={e => setDateFrom(e.target.value)}
+                                className="text-sm font-semibold text-slate-700 outline-none bg-transparent cursor-pointer"
+                            />
+                            <span className="text-slate-400 font-bold text-sm">→</span>
+                            <input
+                                type="date"
+                                value={dateTo}
+                                min={dateFrom}
+                                onChange={e => setDateTo(e.target.value)}
+                                className="text-sm font-semibold text-slate-700 outline-none bg-transparent cursor-pointer"
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
 

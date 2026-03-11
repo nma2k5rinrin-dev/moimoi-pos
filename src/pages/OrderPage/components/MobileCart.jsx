@@ -201,7 +201,7 @@ export function MobileCart() {
                 </div>
 
                 {/* Footer Checkout */}
-                <div className="p-6 pb-24 border-t border-slate-100 bg-slate-50 mt-auto">
+                <div className="p-5 pb-6 border-t border-slate-100 bg-slate-50 mt-auto shrink-0">
                     <div className="flex items-center justify-between mb-4">
                         <span className="text-slate-500 font-medium">Tổng thanh toán</span>
                         <span className="text-xl font-bold text-emerald-600">{formatCurrency(totalAmount)}</span>

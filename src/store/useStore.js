@@ -87,7 +87,6 @@ export const useStore = create(
                 return 'invalid';
             },
             register: ({ fullname, phone, storeName, username, password }) => {
-                // Khởi tạo expiresAt = null (hoặc thiết lập +14 ngày dùng thử nếu có logic sau này)
                 const newUser = { username, pass: password, role: 'admin', fullname, phone, expiresAt: null, isPremium: false };
                 set(state => ({
                     USERS: [...state.USERS, newUser],
@@ -107,11 +106,11 @@ export const useStore = create(
                     },
                     storeTables: {
                         ...state.storeTables,
-                        [username]: ['Mang về', 'Bàn 1']
+                        [username]: []
                     },
                     categories: {
                         ...state.categories,
-                        [username]: [{ id: 'main', name: 'Món Chính' }, { id: 'drink', name: 'Đồ Uống' }]
+                        [username]: []
                     },
                     products: {
                         ...state.products,
@@ -169,12 +168,12 @@ export const useStore = create(
 
                 const updatedStoreTables = role === 'admin' ? {
                     ...state.storeTables,
-                    [username]: ['Mang về', 'Bàn 1']
+                    [username]: []
                 } : state.storeTables;
 
                 const updatedCategories = role === 'admin' ? {
                     ...state.categories,
-                    [username]: [{ id: 'main', name: 'Món Chính' }, { id: 'drink', name: 'Đồ Uống' }]
+                    [username]: []
                 } : state.categories;
 
                 const updatedProducts = role === 'admin' ? {
@@ -225,6 +224,9 @@ export const useStore = create(
                 state.showToast(`Đã xoá nhân viên ${username}`);
                 return { USERS: state.USERS.filter(u => u.username !== username) };
             }),
+            cancelOrder: (orderId) => set(state => ({
+                orders: state.orders.filter(o => o.id !== orderId)
+            })),
 
             // Tự động phân loại dọn dẹp Local Store khi Login (Tránh tràn Memory)
             cleanupStoreData: () => set(state => {

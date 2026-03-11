@@ -18,6 +18,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useStore, useStoreId } from "../../store/useStore";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { useKitchenBadges } from "../../hooks/useKitchenBadges";
 
 function cn(...inputs) {
     return twMerge(clsx(inputs));
@@ -36,6 +37,7 @@ export function Sidebar() {
     const upgradeRequests = useStore(state => state.upgradeRequests);
     const approveUpgrade = useStore(state => state.approveUpgrade);
     const rejectUpgrade = useStore(state => state.rejectUpgrade);
+    const { pendingKitchen, unpaidTables } = useKitchenBadges();
 
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isNotiOpen, setIsNotiOpen] = useState(false);
@@ -54,7 +56,7 @@ export function Sidebar() {
 
     const menuItems = [
         { icon: UtensilsCrossed, label: "Order", path: "/" },
-        { icon: ChefHat, label: "Bếp", path: "/kitchen" },
+        { icon: ChefHat, label: "Bếp", path: "/kitchen", isKitchen: true },
         ...(['admin', 'sadmin'].includes(currentUser?.role) ? [
             { icon: BarChart3, label: "Báo Cáo", path: "/dashboard" },
             { icon: Settings, label: "Cài Đặt", path: "/settings" }
@@ -93,13 +95,36 @@ export function Sidebar() {
                             {isActive && (
                                 <div className="absolute left-0 w-1 h-8 bg-emerald-500 rounded-r-full animate-slide-up" />
                             )}
-                            <item.icon
-                                className={cn(
-                                    "w-6 h-6 transition-transform duration-200",
-                                    isActive ? "scale-110" : "group-hover:scale-110"
+                            {/* Icon wrapper - relative để đặt badge */}
+                            <div className="relative shrink-0">
+                                <item.icon
+                                    className={cn(
+                                        "w-6 h-6 transition-transform duration-200",
+                                        isActive ? "scale-110" : "group-hover:scale-110"
+                                    )}
+                                />
+                                {/* Badge bếp: đơn chờ (đỏ) */}
+                                {item.isKitchen && pendingKitchen > 0 && (
+                                    <span className="absolute -top-2 -right-2.5 min-w-[18px] h-[18px] px-1 bg-red-500 border-2 border-white rounded-full text-white text-[9px] font-bold flex items-center justify-center shadow-sm animate-bounce leading-none">
+                                        {pendingKitchen > 99 ? '99+' : pendingKitchen}
+                                    </span>
                                 )}
-                            />
-                            <span className="hidden lg:block ml-4">{item.label}</span>
+                            </div>
+                            {/* Label + badge cam (bàn chưa thanh toán) */}
+                            <div className="hidden lg:flex items-center gap-2 ml-4 flex-1 min-w-0">
+                                <span>{item.label}</span>
+                                {item.isKitchen && unpaidTables > 0 && (
+                                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-orange-500 text-white text-[10px] font-bold rounded-full shadow-sm leading-none">
+                                        {unpaidTables > 99 ? '99+' : unpaidTables}
+                                    </span>
+                                )}
+                            </div>
+                            {/* Ở icon-only mode (lg hidden), badge cam nhỏ bên phải label hidden -> hiện dưới icon */}
+                            {item.isKitchen && unpaidTables > 0 && (
+                                <span className="lg:hidden absolute -bottom-1.5 left-1/2 -translate-x-1/2 min-w-[16px] h-4 px-1 bg-orange-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center shadow-sm leading-none">
+                                    {unpaidTables > 99 ? '99+' : unpaidTables}
+                                </span>
+                            )}
                         </Link>
                     );
                 })}

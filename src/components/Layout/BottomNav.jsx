@@ -8,6 +8,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useStore } from "../../store/useStore";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { useKitchenBadges } from "../../hooks/useKitchenBadges";
 
 function cn(...inputs) {
     return twMerge(clsx(inputs));
@@ -16,10 +17,11 @@ function cn(...inputs) {
 export function BottomNav() {
     const location = useLocation();
     const currentUser = useStore(state => state.currentUser);
+    const { pendingKitchen, unpaidTables } = useKitchenBadges();
 
     const menuItems = [
         { icon: UtensilsCrossed, label: "Order", path: "/" },
-        { icon: ChefHat, label: "Bếp", path: "/kitchen" },
+        { icon: ChefHat, label: "Bếp", path: "/kitchen", isKitchen: true },
         ...(['admin', 'sadmin'].includes(currentUser?.role) ? [
             { icon: BarChart3, label: "Dashboard", path: "/dashboard" },
             { icon: Settings, label: "Cài Đặt", path: "/settings" }
@@ -40,15 +42,30 @@ export function BottomNav() {
                                 isActive ? "text-emerald-600" : "text-slate-400"
                             )}
                         >
-                            <div
-                                className={cn(
-                                    "flex items-center justify-center p-1.5 rounded-xl transition-all duration-300",
-                                    isActive ? "bg-emerald-50 scale-110" : ""
+                            {/* Icon wrapper với badges */}
+                            <div className="relative">
+                                <div
+                                    className={cn(
+                                        "flex items-center justify-center p-1.5 rounded-xl transition-all duration-300",
+                                        isActive ? "bg-emerald-50 scale-110" : ""
+                                    )}
+                                >
+                                    <item.icon
+                                        className={cn("w-6 h-6", isActive ? "stroke-[2.5px]" : "stroke-2")}
+                                    />
+                                </div>
+                                {/* Badge đỏ: đơn chờ bếp */}
+                                {item.isKitchen && pendingKitchen > 0 && (
+                                    <span className="absolute -top-1.5 -right-2 min-w-[17px] h-[17px] px-1 bg-red-500 border-2 border-white rounded-full text-white text-[9px] font-bold flex items-center justify-center shadow-sm animate-bounce leading-none">
+                                        {pendingKitchen > 99 ? '99+' : pendingKitchen}
+                                    </span>
                                 )}
-                            >
-                                <item.icon
-                                    className={cn("w-6 h-6", isActive ? "stroke-[2.5px]" : "stroke-2")}
-                                />
+                                {/* Badge cam: bàn chưa thanh toán */}
+                                {item.isKitchen && unpaidTables > 0 && (
+                                    <span className="absolute -top-1.5 -left-2 min-w-[17px] h-[17px] px-1 bg-orange-500 border-2 border-white rounded-full text-white text-[9px] font-bold flex items-center justify-center shadow-sm leading-none">
+                                        {unpaidTables > 99 ? '99+' : unpaidTables}
+                                    </span>
+                                )}
                             </div>
                             <span
                                 className={cn(
