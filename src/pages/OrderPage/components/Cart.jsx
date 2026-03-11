@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { useStore, useStoreId } from '../../../store/useStore';
 import { formatCurrency } from '../../../utils/format';
 import { Trash2, Minus, Plus, ShoppingBag, Edit3, X, CreditCard, Banknote, QrCode } from 'lucide-react';
@@ -26,7 +26,7 @@ export function Cart() {
     const tables = useStore(state => state.storeTables[storeId] || []);
     const addNote = useStore(state => state.addNote);
     const orders = useStore(state => state.orders);
-    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin'] || {});
+    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin']) || {};
     const total = getCartTotal();
 
     const visibleOrders = React.useMemo(() => {

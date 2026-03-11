@@ -68,14 +68,22 @@ const isSupabaseConfigured = () => {
 // ============================================================
 // Store
 // ============================================================
+
+// Stable default storeInfo (tranh selector || {} tạo object mới mãi)
+const DEFAULT_STORE_INFO = { name: 'Nhà Hàng Của Tôi', phone: '', address: '', logoUrl: '', bankId: '', bankAccount: '', bankOwner: '', isPremium: true };
+
 export const useStore = create((set, get) => ({
     // ── Auth & Users ─────────────────────────────────────────
     currentUser: null,
-    // Local fallback users (dùng khi chưa kết nối Supabase)
     USERS: [
         { username: 'sadmin', pass: '1', role: 'sadmin', fullname: 'Super Admin', avatar: '', isPremium: true },
     ],
     isLoading: false,
+    // Khởi tạo với sadmin mặc định — tránh selector || {} tạo object mới mỗi render
+    storeInfos: { sadmin: DEFAULT_STORE_INFO },
+    storeTables: { sadmin: [] },
+    categories: { sadmin: [] },
+    products: { sadmin: [] },
 
     getStoreId: () => {
         const state = get();

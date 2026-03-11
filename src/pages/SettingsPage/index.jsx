@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
     Store,
     MenuSquare,
@@ -868,7 +868,7 @@ export default function SettingsPage() {
     const showToast = useStore(state => state.showToast);
     const currentUser = useStore(state => state.currentUser);
     const storeId = useStoreId();
-    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin'] || {});
+    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin']) || {};
     const updateStoreInfo = useStore(state => state.updateStoreInfo);
 
     const [generalForm, setGeneralForm] = useState(storeInfo);
