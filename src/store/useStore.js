@@ -60,7 +60,7 @@ const mapUpgradeReq = (r) => r ? ({
 }) : null;
 
 // Check xem Supabase đã được cấu hình thật chưa
-const isSupabaseConfigured = () => {
+export const isSupabaseConfigured = () => {
     const url = import.meta.env.VITE_SUPABASE_URL || '';
     return url.length > 0 && !url.includes('xxx.supabase.co') && url.startsWith('https://');
 };
@@ -218,6 +218,17 @@ export const useStore = create((set, get) => ({
     },
 
     register: async ({ fullname, phone, storeName, username, password }) => {
+        if (!isSupabaseConfigured()) {
+            get().showToast('Lỗi: Cần kết nối CSDL Online để đăng ký!', 'error');
+            return 'offline';
+        }
+
+        // Kiểm tra bù trừ mạng internet
+        if (!navigator.onLine) {
+            get().showToast('Lỗi: Bạn đang Offline, không thể đăng ký!', 'error');
+            return 'offline';
+        }
+
         // Kiểm tra trùng username
         const { data: existing } = await supabase.from('users').select('username').eq('username', username);
         if (existing?.length) {

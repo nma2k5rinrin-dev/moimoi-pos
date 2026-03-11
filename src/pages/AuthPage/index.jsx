@@ -1,7 +1,8 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, useStoreId } from '../../store/useStore';
+import { useStore, useStoreId, isSupabaseConfigured } from '../../store/useStore';
 import { Store, User, Lock, LogIn, UserPlus, Phone, Briefcase, BadgeCheck, KeyRound, ArrowLeft, CheckCircle, XCircle, Loader2, Eye, EyeOff } from 'lucide-react';
+import { validatePassword } from '../../utils/validators';
 
 // ─── Forgot Password View ────────────────────────────────────────────────────
 function ForgotPasswordView({ onBack, onRegister }) {
@@ -198,12 +199,18 @@ export default function AuthPage() {
                 }
             } else {
                 if (!username || !password || !fullname || !phone || !storeName) { setError('Vui lòng điền đủ tất cả các trường'); return; }
+
+                const passError = validatePassword(password);
+                if (passError) { setError(passError); return; }
+
                 const result = await register({ username, password, fullname, phone, storeName });
                 if (result === 'success') {
                     showToast('Đăng ký cửa hàng thành công!');
                     navigate('/');
                 } else if (result === 'exists') {
                     setError('Tên đăng nhập đã tồn tại, vui lòng chọn tên khác');
+                } else if (result === 'offline') {
+                    setError('Cần cấu hình CSDL và có kết nối Internet để đăng ký');
                 } else {
                     setError('Đăng ký thất bại, vui lòng thử lại');
                 }
@@ -343,7 +350,7 @@ export default function AuthPage() {
                                 <div className="pt-2">
                                     <button
                                         type="submit"
-                                        disabled={isSubmitting}
+                                        disabled={isSubmitting || (!isLoginMode && !isSupabaseConfigured())}
                                         className="w-full flex items-center justify-center gap-2 h-12 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-70 text-white rounded-xl font-bold text-lg shadow-lg shadow-emerald-500/30 transition-all active:scale-[0.98]"
                                     >
                                         {isSubmitting
@@ -352,6 +359,9 @@ export default function AuthPage() {
                                         }
                                         {isSubmitting ? 'Đang xử lý...' : (isLoginMode ? 'Đăng nhập' : 'Hoàn tất Đăng Ký')}
                                     </button>
+                                    {!isLoginMode && !isSupabaseConfigured() && (
+                                        <p className="text-xs text-red-500 mt-2 text-center">Chế độ Offline hiện tại không hỗ trợ đăng ký cửa hàng mới</p>
+                                    )}
                                 </div>
                             </form>
 

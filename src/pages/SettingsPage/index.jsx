@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
     Store,
     MenuSquare,
@@ -28,6 +28,7 @@ import {
     EyeOff
 } from 'lucide-react';
 import { useStore, useStoreId } from '../../store/useStore';
+import { validatePassword } from '../../utils/validators';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -61,9 +62,10 @@ function AccountSettings({ onBack }) {
     const [profileForm, setProfileForm] = useState({ fullname: currentUser?.fullname || '', phone: currentUser?.phone || '' });
 
     const handleChangePassword = async (e) => {
-        e.preventDefault();
         if (oldPass !== currentUser?.pass) { showToast('Mật khẩu hiện tại không đúng', 'error'); return; }
         if (!newPass) { showToast('Mật khẩu mới không được để trống', 'error'); return; }
+        const passError = validatePassword(newPass);
+        if (passError) { showToast(passError, 'error'); return; }
         if (newPass !== confirmPass) { showToast('Xác nhận mật khẩu không khớp', 'error'); return; }
         setSaving(true);
         try {
@@ -272,6 +274,9 @@ function UserManagement({ onBack }) {
 
     const handleAdd = () => {
         if (!form.username || !form.password) return;
+        const passError = validatePassword(form.password);
+        if (passError) { showToast(passError, 'error'); return; }
+        
         addStaff(form);
         setForm({ fullname: '', phone: '', username: '', password: '', role: 'staff', createdBy: '' });
         setShowForm(false);
@@ -285,6 +290,10 @@ function UserManagement({ onBack }) {
 
         // Map đúng trường mật khẩu của DB
         if (payload.password !== undefined) {
+            if (payload.password !== '') {
+                const passError = validatePassword(payload.password);
+                if (passError) { showToast(passError, 'error'); return; }
+            }
             payload.pass = payload.password;
             delete payload.password;
         }
