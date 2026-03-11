@@ -1,694 +1,647 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-
-export const useStore = create(
-    persist(
-        (set, get) => ({
-            // Auth & Users
-            currentUser: null,
-            USERS: [
-                { username: 'sadmin', pass: '1', role: 'sadmin', fullname: 'Super Admin', avatar: '', isPremium: true },
-                { username: 'nv1', pass: '1', role: 'staff', fullname: 'Nhân viên 1', avatar: '', createdBy: 'sadmin' }
-            ],
-            // Helper function lấy ID của Cửa hàng mẹ
-            getStoreId: () => {
-                const state = get();
-                const user = state.currentUser;
-                if (!user) return 'sadmin';
-                if (user.role === 'sadmin') {
-                    return state.sadminViewStoreId === 'all' ? 'sadmin' : state.sadminViewStoreId;
-                }
-                return user.role === 'staff' ? user.createdBy : user.username;
-            },
-            login: (username, pass) => {
-                // Bypass login cho SuperAdmin ngay cả khi mảng USERS chưa được persist cập nhật
-                if (username === 'sadmin' && pass === '1') {
-                    const superAdminData = { username: 'sadmin', pass: '1', role: 'sadmin', fullname: 'SuperAdmin', avatar: '', isPremium: true };
-                    set(state => ({
-                        currentUser: superAdminData,
-                        USERS: state.USERS.find(u => u.username === 'sadmin')
-                            ? state.USERS
-                            : [...state.USERS, superAdminData]
-                    }));
-                    get().cleanupStoreData();
-                    return 'success';
-                }
-
-                const cleanInputUsername = username.toLowerCase().replace(/\s/g, '');
-                const user = get().USERS.find(u => {
-                    const cleanDbUsername = u.username.toLowerCase().replace(/\s/g, '');
-                    return cleanDbUsername === cleanInputUsername && u.pass === pass;
-                });
-                if (user) {
-                    // Check Hạn Sử Dụng (License) cho Admin
-                    if (user.role === 'admin' && user.expiresAt) {
-                        const isExpired = Date.now() > new Date(user.expiresAt).getTime();
-                        if (isExpired) {
-                            // User is expired, demote to free tier but DO NOT block login
-                            if (user.isPremium) {
-                                user.isPremium = false;
-                            }
-                            user.showVipExpired = true; // Flag to show the Renewal Modal
-
-                            // Remove showVipCongrat if it somehow lingered
-                            if (user.showVipCongrat) {
-                                user.showVipCongrat = false;
-                            }
-                        }
-                    }
-                    // Nếu Staff đăng nhập, kiểm tra xem Cửa Hàng (Admin quản lý) có bị hết hạn không
-                    if (user.role === 'staff' && user.createdBy) {
-                        const parentAdmin = get().USERS.find(u => u.username === user.createdBy);
-                        if (parentAdmin && parentAdmin.expiresAt) {
-                            const isParentExpired = Date.now() > new Date(parentAdmin.expiresAt).getTime();
-                            if (isParentExpired) {
-                                // Just let staff login but inform them if necessary. For now, we allow them to login.
-                                // Or we could block them? Let's allow but they also face limitations.
-                            }
-                        }
-                    }
-
-                    // Update the USERS array to reflect isPremium and showVipExpired changes
-                    const updatedUsers = get().USERS.map(u => u.username === user.username ? { ...u, isPremium: user.isPremium, showVipExpired: user.showVipExpired, showVipCongrat: user.showVipCongrat } : u);
-
-                    const updatedStoreInfos = { ...get().storeInfos };
-                    if (updatedStoreInfos[user.username] && user.role === 'admin') {
-                        updatedStoreInfos[user.username] = { ...updatedStoreInfos[user.username], isPremium: user.isPremium };
-                    }
-
-                    set({
-                        currentUser: user,
-                        USERS: updatedUsers,
-                        storeInfos: updatedStoreInfos
-                    });
-                    get().cleanupStoreData();
-                    return 'success';
-                }
-                return 'invalid';
-            },
-            register: ({ fullname, phone, storeName, username, password }) => {
-                const newUser = { username, pass: password, role: 'admin', fullname, phone, expiresAt: null, isPremium: false };
-                set(state => ({
-                    USERS: [...state.USERS, newUser],
-                    currentUser: newUser,
-                    storeInfos: {
-                        ...state.storeInfos,
-                        [username]: {
-                            name: storeName || fullname,
-                            phone: phone || '',
-                            address: '',
-                            logoUrl: '',
-                            bankId: '',
-                            bankAccount: '',
-                            bankOwner: '',
-                            isPremium: false
-                        }
-                    },
-                    storeTables: {
-                        ...state.storeTables,
-                        [username]: []
-                    },
-                    categories: {
-                        ...state.categories,
-                        [username]: []
-                    },
-                    products: {
-                        ...state.products,
-                        [username]: []
-                    }
-                }));
-            },
-            logout: () => set({ currentUser: null }),
-            updateUserAvatar: (avatarUrl) => set(state => {
-                if (!state.currentUser) return state;
-                const updatedUser = { ...state.currentUser, avatar: avatarUrl };
-                return {
-                    currentUser: updatedUser,
-                    USERS: state.USERS.map(u => u.username === updatedUser.username ? updatedUser : u)
-                };
-            }),
-            addStaff: ({ fullname, phone, username, password, role = 'staff', createdBy }) => set(state => {
-                const isSuperAdmin = state.currentUser?.role === 'sadmin';
-                const isAdmin = state.currentUser?.role === 'admin';
-                const adminUsername = state.currentUser?.username;
-                const isPremium = state.currentUser?.isPremium;
-
-                // Đếm staff thuộc riêng admin này (không tính toàn hệ thống)
-                if (isAdmin && !isPremium) {
-                    const myStaffCount = state.USERS.filter(u => u.role === 'staff' && u.createdBy === adminUsername).length;
-                    if (myStaffCount >= 1) {
-                        setTimeout(() => get().showConfirm(
-                            'Tài khoản Miễn Phí đã đạt giới hạn 1 nhân viên. Bạn có muốn nâng cấp lên bản trả phí để thêm không giới hạn không?',
-                            () => get().setUpgradeModalOpen(true)
-                        ), 0);
-                        return state;
-                    }
-                }
-
-                if (state.USERS.find(u => u.username === username)) {
-                    get().showToast('Tên đăng nhập đã tồn tại', 'error');
-                    return state;
-                }
-                const newStaff = { username, pass: password, role: role, isPremium: false, fullname, phone, avatar: '', createdBy: createdBy || state.currentUser?.username };
-                get().showToast('Thêm tài khoản thành công!');
-
-                const updatedStoreInfos = role === 'admin' ? {
-                    ...state.storeInfos,
-                    [username]: {
-                        name: fullname || username,
-                        phone: phone || '',
-                        address: '',
-                        logoUrl: '',
-                        bankId: '',
-                        bankAccount: '',
-                        bankOwner: '',
-                        isPremium: false
-                    }
-                } : state.storeInfos;
-
-                const updatedStoreTables = role === 'admin' ? {
-                    ...state.storeTables,
-                    [username]: []
-                } : state.storeTables;
-
-                const updatedCategories = role === 'admin' ? {
-                    ...state.categories,
-                    [username]: []
-                } : state.categories;
-
-                const updatedProducts = role === 'admin' ? {
-                    ...state.products,
-                    [username]: []
-                } : state.products;
-
-                return {
-                    USERS: [...state.USERS, newStaff],
-                    storeInfos: updatedStoreInfos,
-                    storeTables: updatedStoreTables,
-                    categories: updatedCategories,
-                    products: updatedProducts
-                };
-            }),
-            updateUser: (username, updatedData) => set(state => {
-                const existingUser = state.USERS.find(u => u.username === username);
-
-                // Nếu sadmin tắt VIP (isPremium: true → false), tự động báo hết hạn
-                const vipRevoked = existingUser?.isPremium === true && updatedData.isPremium === false;
-                if (vipRevoked) {
-                    updatedData = { ...updatedData, showVipExpired: true };
-                }
-
-                const updatedUsers = state.USERS.map(u =>
-                    u.username === username ? { ...u, ...updatedData } : u
-                );
-
-                // Nếu đổi username cho Staff, cập nhật lại createdBy trong các Order cũ
-                let updatedOrders = state.orders;
-                const newUsername = updatedData.username;
-                if (newUsername && newUsername !== username) {
-                    updatedOrders = state.orders.map(o =>
-                        o.createdBy === username ? { ...o, createdBy: newUsername } : o
-                    );
-                }
-
-                get().showToast('Cập nhật thông tin thành công!');
-                // Nếu đang update chính mình, cập nhật luôn session currentUser
-                const isSelf = state.currentUser?.username === username;
-                return {
-                    USERS: updatedUsers,
-                    orders: updatedOrders,
-                    currentUser: isSelf ? { ...state.currentUser, ...updatedData } : state.currentUser
-                };
-            }),
-            deleteUser: (username) => set(state => {
-                state.showToast(`Đã xoá nhân viên ${username}`);
-                return { USERS: state.USERS.filter(u => u.username !== username) };
-            }),
-            cancelOrder: (orderId) => set(state => ({
-                orders: state.orders.filter(o => o.id !== orderId)
-            })),
-
-            // Tự động phân loại dọn dẹp Local Store khi Login (Tránh tràn Memory)
-            cleanupStoreData: () => set(state => {
-                const storeId = get().getStoreId();
-                const currentStoreInfo = state.storeInfos[storeId] || state.storeInfos['sadmin'] || {};
-
-                // Mặc định gói Free lưu 3 ngày, VIP lưu 365 ngày
-                const isPremium = currentStoreInfo?.isPremium || false;
-                const daysToKeep = isPremium ? 365 : 3;
-
-                const cutoffDate = new Date();
-                cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
-                cutoffDate.setHours(0, 0, 0, 0);
-
-                const validOrders = state.orders.filter(order => new Date(order.time) >= cutoffDate);
-                return { orders: validOrders };
-            }),
-
-            // Global Confirm Modal UI
-            confirmDialog: null,
-            showConfirm: (message, onConfirm) => set({ confirmDialog: { message, onConfirm } }),
-            closeConfirm: () => set({ confirmDialog: null }),
-
-            // Notification System
-            notifications: [],
-            addNotification: (userId, title, message) => set(state => ({
-                notifications: [{
-                    id: Date.now().toString(),
-                    userId,
-                    title,
-                    message,
-                    time: new Date().toISOString(),
-                    read: false
-                }, ...state.notifications]
-            })),
-            markNotificationAsRead: (id) => set(state => ({
-                notifications: state.notifications.map(n => n.id === id ? { ...n, read: true } : n)
-            })),
-            clearNotifications: (userId) => set(state => ({
-                notifications: state.notifications.filter(n => n.userId !== userId)
-            })),
-
-            // Upgrade Modal State
-            isUpgradeModalOpen: false,
-            setUpgradeModalOpen: (isOpen) => set({ isUpgradeModalOpen: isOpen }),
-
-            // Hệ thống Kiểm duyệt VIP
-            upgradeRequests: [],
-            requestUpgrade: (username, planIndex, planName, months) => set(state => {
-                if (state.upgradeRequests.some(req => req.username === username)) {
-                    state.showToast('Bạn đã có yêu cầu nâng cấp đang chờ duyệt!', 'error');
-                    return state;
-                }
-                const newReq = { id: Date.now().toString(), username, planIndex, planName, months, time: new Date().toISOString() };
-                state.showToast(`Đã gửi yêu cầu Nâng cấp ${planName} đến SuperAdmin!`);
-                return { upgradeRequests: [...state.upgradeRequests, newReq], isUpgradeModalOpen: false };
-            }),
-            approveUpgrade: (requestId) => set(state => {
-                const req = state.upgradeRequests.find(r => r.id === requestId);
-                if (!req) return state;
-
-                const targetUserIndex = state.USERS.findIndex(u => u.username === req.username);
-                if (targetUserIndex === -1) {
-                    state.showToast('Không tìm thấy tài khoản để duyệt', 'error');
-                    return { upgradeRequests: state.upgradeRequests.filter(r => r.id !== requestId) };
-                }
-
-                const currentUserObj = state.USERS[targetUserIndex];
-
-                // Merge Hạn sử dụng: Nếu đang còn Hạn -> Cộng dồn. Nếu Đã hết/Chưa có -> Tính từ Hiện tại.
-                const baseDate = (currentUserObj.expiresAt && new Date(currentUserObj.expiresAt).getTime() > Date.now())
-                    ? new Date(currentUserObj.expiresAt)
-                    : new Date();
-
-                baseDate.setDate(baseDate.getDate() + (req.months * 30));
-
-                const updatedUser = {
-                    ...currentUserObj,
-                    isPremium: true,
-                    expiresAt: baseDate.toISOString(),
-                    showVipCongrat: true
-                };
-
-                const newUsers = [...state.USERS];
-                newUsers[targetUserIndex] = updatedUser;
-
-                state.showToast(`Đã duyệt gói ${req.planName} cho Cửa hàng ${req.username}`);
-
-                // Nếu người click duyệt lại chính là đối tượng đang Login (Tự duyệt) -> update cả currentUser
-                const isSelf = state.currentUser?.username === req.username;
-
-                // Sync VIP Status vào storeInfos của Admin đó
-                const updatedStoreInfos = { ...state.storeInfos };
-                if (updatedStoreInfos[req.username]) {
-                    updatedStoreInfos[req.username] = { ...updatedStoreInfos[req.username], isPremium: true };
-                }
-
-                const newNotification = {
-                    id: Date.now().toString(),
-                    userId: req.username,
-                    title: 'Nâng cấp VIP thành công',
-                    message: `Yêu cầu gói ${req.planName} của bạn đã được duyệt. Hạn sử dụng đến ${baseDate.toLocaleDateString('vi-VN')}`,
-                    time: new Date().toISOString(),
-                    read: false
-                };
-
-                return {
-                    USERS: newUsers,
-                    currentUser: isSelf ? updatedUser : state.currentUser,
-                    storeInfos: updatedStoreInfos,
-                    upgradeRequests: state.upgradeRequests.filter(r => r.id !== requestId),
-                    notifications: [newNotification, ...state.notifications]
-                };
-            }),
-            rejectUpgrade: (requestId) => set(state => {
-                const req = state.upgradeRequests.find(r => r.id === requestId);
-                if (req) {
-                    const newNotification = {
-                        id: Date.now().toString(),
-                        userId: req.username,
-                        title: 'Yêu cầu VIP bị từ chối',
-                        message: `Yêu cầu tự động nâng cấp gói ${req.planName} chưa được duyệt.`,
-                        time: new Date().toISOString(),
-                        read: false
-                    };
-                    state.showToast('Đã từ chối yêu cầu Nâng cấp', 'error');
-                    return {
-                        upgradeRequests: state.upgradeRequests.filter(r => r.id !== requestId),
-                        notifications: [newNotification, ...state.notifications]
-                    };
-                }
-                state.showToast('Đã từ chối yêu cầu Nâng cấp', 'error');
-                return { upgradeRequests: state.upgradeRequests.filter(r => r.id !== requestId) };
-            }),
-
-            clearVipCongrat: (username) => set(state => {
-                const updatedUsers = state.USERS.map(u => u.username === username ? { ...u, showVipCongrat: false } : u);
-                const isSelf = state.currentUser?.username === username;
-                return {
-                    USERS: updatedUsers,
-                    currentUser: isSelf ? { ...state.currentUser, showVipCongrat: false } : state.currentUser
-                };
-            }),
-
-            closeVipExpiredModal: (username) => set(state => {
-                const updatedUsers = state.USERS.map(u => u.username === username ? { ...u, showVipExpired: false } : u);
-                const isSelf = state.currentUser?.username === username;
-                return {
-                    USERS: updatedUsers,
-                    currentUser: isSelf ? { ...state.currentUser, showVipExpired: false } : state.currentUser
-                };
-            }),
-
-            // Store Info
-            storeInfos: {
-                'sadmin': {
-                    name: 'Nhà Hàng Của Tôi',
-                    address: 'Số 102, Đường Nguyễn Văn Linh, Phường Tân Phú, Quận 7, TP.HCM',
-                    phone: '0987 654 321',
-                    logoUrl: '',
-                    bankId: '',
-                    bankAccount: '',
-                    bankOwner: '',
-                    isPremium: true
-                }
-            },
-            updateStoreInfo: (info) => set(state => {
-                const storeId = state.getStoreId();
-                const currentInfo = state.storeInfos[storeId] || {};
-                return {
-                    storeInfos: {
-                        ...state.storeInfos,
-                        [storeId]: { ...currentInfo, ...info }
-                    }
-                };
-            }),
-
-            // Dynamic Tables
-            storeTables: {
-                'sadmin': []
-            },
-            addTable: (tableName) => set(state => {
-                const storeId = state.getStoreId();
-                const currentTables = state.storeTables[storeId] || [];
-                return {
-                    storeTables: {
-                        ...state.storeTables,
-                        [storeId]: currentTables.includes(tableName) ? currentTables : [...currentTables, tableName]
-                    }
-                };
-            }),
-            removeTable: (tableName) => set(state => {
-                const storeId = state.getStoreId();
-                const currentTables = state.storeTables[storeId] || [];
-                const newTables = currentTables.filter(t => t !== tableName);
-                return {
-                    storeTables: {
-                        ...state.storeTables,
-                        [storeId]: newTables
-                    },
-                    selectedTable: state.selectedTable === tableName ? (newTables[0] || '') : state.selectedTable
-                };
-            }),
-
-            categories: { 'sadmin': [{ id: 'main', name: 'Món Chính' }, { id: 'drink', name: 'Đồ Uống' }] },
-            products: { 'sadmin': [] },
-            bestSellers: [],
-            cart: [],
-            orders: [],
-            selectedCategory: 'all',
-            searchQuery: '',
-            selectedTable: 'Mang về',
-            sadminViewStoreId: 'all', // all hoặc username của admin
-            setSadminViewStoreId: (storeId) => set({ sadminViewStoreId: storeId }),
-            setSelectedTable: (table) => set({ selectedTable: table }),
-            theme: 'light',
-            toast: null,
-
-            showToast: (message, type = 'success') => {
-                set({ toast: { message, type } });
-                setTimeout(() => {
-                    set(state => state.toast?.message === message ? { toast: null } : state);
-                }, 1800);
-            },
-
-            toggleTheme: () => set(state => {
-                const newTheme = state.theme === 'light' ? 'dark' : 'light';
-                // Apply class directly to HTML
-                if (newTheme === 'dark') {
-                    document.documentElement.classList.add('dark');
-                } else {
-                    document.documentElement.classList.remove('dark');
-                }
-                return { theme: newTheme };
-            }),
-
-            setCategory: (category) => set({ selectedCategory: category }),
-            setSearchQuery: (query) => set({ searchQuery: query }),
-
-            updateOrderStatus: (orderId, status) => set(state => ({
-                orders: state.orders.map(order => order.id === orderId ? { ...order, status } : order)
-            })),
-
-            updateOrderPaymentStatus: (orderId, paymentStatus) => set(state => ({
-                orders: state.orders.map(o => o.id === orderId ? { ...o, paymentStatus } : o)
-            })),
-
-            updateOrderItemStatus: (orderId, itemId, isDone) => set(state => ({
-                orders: state.orders.map(order => {
-                    if (order.id === orderId) {
-                        return {
-                            ...order,
-                            items: order.items.map(item => item.id === itemId ? { ...item, isDone } : item)
-                        };
-                    }
-                    return order;
-                })
-            })),
-
-            addToCart: (product) => set((state) => {
-                const existingItem = state.cart.find(item => item.id === product.id);
-                if (existingItem) {
-                    return {
-                        cart: state.cart.map(item =>
-                            item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-                        )
-                    };
-                }
-                return { cart: [...state.cart, { ...product, quantity: 1, note: '' }] };
-            }),
-
-            removeFromCart: (productId) => set((state) => ({
-                cart: state.cart.filter(item => item.id !== productId)
-            })),
-
-            updateQuantity: (productId, amount) => set((state) => ({
-                cart: state.cart.map(item => {
-                    if (item.id === productId) {
-                        const newQuantity = Math.max(1, item.quantity + amount);
-                        return { ...item, quantity: newQuantity };
-                    }
-                    return item;
-                })
-            })),
-
-            addNote: (productId, note) => set((state) => ({
-                cart: state.cart.map(item =>
-                    item.id === productId ? { ...item, note } : item
-                )
-            })),
-
-            clearCart: () => set({ cart: [] }),
-
-            setSelectedTable: (table) => set({ selectedTable: table }),
-
-            checkoutOrder: (paymentStatus = 'unpaid') => set(state => {
-                if (state.cart.length === 0) return state;
-
-                // Check giới hạn 10 đơn/ngày - chỉ áp dụng cho tài khoản miễn phí
-                const isPremium = state.currentUser?.isPremium;
-                const isSadmin = state.currentUser?.role === 'sadmin';
-
-                if (!isPremium && !isSadmin) {
-                    const todayStr = new Date().toDateString();
-                    // Đếm đơn hôm nay của cửa hàng (admin + staff của cửa hàng đó)
-                    const storeOwner = state.currentUser?.role === 'staff' ? state.currentUser?.createdBy : state.currentUser?.username;
-                    const storeUsers = state.USERS
-                        .filter(u => u.username === storeOwner || u.createdBy === storeOwner)
-                        .map(u => u.username);
-                    const totalOrdersToday = state.orders.filter(
-                        o => storeUsers.includes(o.createdBy) && new Date(o.time).toDateString() === todayStr
-                    ).length;
-
-                    if (totalOrdersToday >= 10) {
-                        setTimeout(() => get().showConfirm(
-                            'Cửa hàng đã đạt 10 đơn hôm nay (giới hạn Gói Miễn Phí). Bạn có muốn nâng cấp lên bản trả phí để tạo đơn không giới hạn không?',
-                            () => get().setUpgradeModalOpen(true)
-                        ), 0);
-                        return state;
-                    }
-                }
-
-                const totalAmount = get().getCartTotal();
-                const newOrder = {
-                    id: `ORD-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
-                    table: state.selectedTable,
-                    items: state.cart.map(item => ({ ...item, isDone: false })),
-                    status: 'pending',
-                    paymentStatus,
-                    time: new Date().toISOString(),
-                    totalAmount,
-                    createdBy: state.currentUser?.username || 'unknown',
-                    storeId: get().getStoreId()
-                };
-                return {
-                    orders: [newOrder, ...state.orders],
-                    cart: []
-                };
-            }),
-
-            // Quản lý Thực Đơn
-            updateProduct: (updatedProduct) => set(state => {
-                const storeId = state.getStoreId();
-                const currentProducts = state.products[storeId] || [];
-                return {
-                    products: {
-                        ...state.products,
-                        [storeId]: currentProducts.map(p => p.id === updatedProduct.id ? updatedProduct : p)
-                    }
-                };
-            }),
-            deleteProduct: (productId) => set(state => {
-                const storeId = state.getStoreId();
-                const currentProducts = state.products[storeId] || [];
-                return {
-                    products: {
-                        ...state.products,
-                        [storeId]: currentProducts.filter(p => p.id !== productId)
-                    }
-                };
-            }),
-            addProduct: (product) => set(state => {
-                const storeId = get().getStoreId();
-                const currentProducts = state.products[storeId] || [];
-                const isPremium = state.currentUser?.isPremium;
-                const isSadmin = state.currentUser?.role === 'sadmin';
-
-                if (!isPremium && !isSadmin && currentProducts.length >= 5) {
-                    setTimeout(() => get().showConfirm(
-                        'Tài khoản Miễn Phí đã đạt giới hạn 5 món ăn. Bạn có muốn nâng cấp lên bản trả phí để thêm không giới hạn không?',
-                        () => get().setUpgradeModalOpen(true)
-                    ), 0);
-                    return state;
-                }
-
-                return {
-                    products: {
-                        ...state.products,
-                        [storeId]: [{ ...product, id: Date.now().toString() }, ...currentProducts]
-                    }
-                };
-            }),
-
-            // Quản lý Danh Mục
-            addCategory: (categoryName) => set(state => {
-                const storeId = get().getStoreId();
-                const currentCategories = state.categories[storeId] || [];
-                const isPremium = state.currentUser?.isPremium;
-                const isSadmin = state.currentUser?.role === 'sadmin';
-
-                if (!isPremium && !isSadmin && currentCategories.length >= 2) {
-                    setTimeout(() => get().showConfirm(
-                        'Tài khoản Miễn Phí đã đạt giới hạn 2 phân loại. Bạn có muốn nâng cấp lên bản trả phí để thêm không giới hạn không?',
-                        () => get().setUpgradeModalOpen(true)
-                    ), 0);
-                    return state;
-                }
-
-                return {
-                    categories: {
-                        ...state.categories,
-                        [storeId]: [...currentCategories, { id: 'cat_' + Date.now().toString(), name: categoryName }]
-                    }
-                };
-            }),
-            updateCategory: (updatedCategory) => set(state => {
-                const storeId = get().getStoreId();
-                const currentCategories = state.categories[storeId] || [];
-                return {
-                    categories: {
-                        ...state.categories,
-                        [storeId]: currentCategories.map(c => c.id === updatedCategory.id ? updatedCategory : c)
-                    }
-                };
-            }),
-            deleteCategory: (categoryId) => set(state => {
-                const storeId = get().getStoreId();
-                const currentCategories = state.categories[storeId] || [];
-                const currentProducts = state.products[storeId] || [];
-                return {
-                    categories: {
-                        ...state.categories,
-                        [storeId]: currentCategories.filter(c => c.id !== categoryId)
-                    },
-                    products: {
-                        ...state.products,
-                        [storeId]: currentProducts.map(p => p.category === categoryId ? { ...p, category: '' } : p)
-                    }
-                };
-            }),
-
-            getCartTotal: () => {
-                const { cart } = get();
-                return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-            }
-        }),
-        {
-            name: 'pos-store-v1', // unique name
-            version: 3,
-            migrate: (persistedState, version) => {
-                if (version < 2) {
-                    persistedState.USERS = [
-                        { username: 'sadmin', pass: '1', role: 'sadmin', fullname: 'Super Admin', avatar: '', isPremium: true },
-                        { username: 'nv1', pass: '1', role: 'staff', fullname: 'Nhân viên 1', avatar: '', createdBy: 'sadmin' }
-                    ];
-                }
-                if (version < 3) {
-                    persistedState.categories = { 'sadmin': [{ id: 'main', name: 'Món Chính' }, { id: 'drink', name: 'Đồ Uống' }] };
-                    persistedState.products = { 'sadmin': [] };
-                }
-                return persistedState;
+import { supabase } from '../lib/supabase';
+
+// ============================================================
+// Helper — chuyển đổi field name DB → App
+// ============================================================
+const mapUser = (u) => u ? ({
+    username: u.username,
+    pass: u.pass,
+    role: u.role,
+    fullname: u.fullname || '',
+    phone: u.phone || '',
+    avatar: u.avatar || '',
+    isPremium: u.is_premium || false,
+    expiresAt: u.expires_at || null,
+    createdBy: u.created_by || null,
+    showVipExpired: u.show_vip_expired || false,
+    showVipCongrat: u.show_vip_congrat || false,
+}) : null;
+
+const mapStoreInfo = (s) => s ? ({
+    name: s.name || '',
+    phone: s.phone || '',
+    address: s.address || '',
+    logoUrl: s.logo_url || '',
+    bankId: s.bank_id || '',
+    bankAccount: s.bank_account || '',
+    bankOwner: s.bank_owner || '',
+    isPremium: s.is_premium || false,
+}) : null;
+
+const mapOrder = (o) => o ? ({
+    id: o.id,
+    table: o.table_name,
+    items: o.items || [],
+    status: o.status,
+    paymentStatus: o.payment_status,
+    totalAmount: o.total_amount,
+    createdBy: o.created_by,
+    time: o.time,
+    storeId: o.store_id,
+}) : null;
+
+const mapNotification = (n) => n ? ({
+    id: n.id,
+    userId: n.user_id,
+    title: n.title,
+    message: n.message,
+    time: n.time,
+    read: n.read,
+}) : null;
+
+const mapUpgradeReq = (r) => r ? ({
+    id: r.id,
+    username: r.username,
+    planIndex: r.plan_index,
+    planName: r.plan_name,
+    months: r.months,
+    time: r.time,
+}) : null;
+
+// ============================================================
+// Store
+// ============================================================
+export const useStore = create((set, get) => ({
+    // ── Auth & Users ─────────────────────────────────────────
+    currentUser: null,
+    USERS: [],
+    isLoading: false,
+
+    getStoreId: () => {
+        const state = get();
+        const user = state.currentUser;
+        if (!user) return 'sadmin';
+        if (user.role === 'sadmin') {
+            return state.sadminViewStoreId === 'all' ? 'sadmin' : state.sadminViewStoreId;
+        }
+        return user.role === 'staff' ? user.createdBy : user.username;
+    },
+
+    // Tải toàn bộ data sau khi login
+    loadInitialData: async (user) => {
+        set({ isLoading: true });
+        try {
+            const storeId = user.role === 'sadmin' ? null
+                : user.role === 'staff' ? user.createdBy
+                    : user.username;
+
+            // Load tất cả users (sadmin xem hết, admin/staff xem store mình)
+            const { data: usersData } = await supabase.from('users').select('*');
+            const USERS = (usersData || []).map(mapUser);
+
+            // Load storeInfos
+            const { data: storeInfosData } = await supabase.from('store_infos').select('*');
+            const storeInfos = {};
+            (storeInfosData || []).forEach(s => { storeInfos[s.store_id] = mapStoreInfo(s); });
+
+            // Load storeTables
+            const { data: tablesData } = await supabase.from('store_tables').select('*').order('sort_order');
+            const storeTables = {};
+            (tablesData || []).forEach(t => {
+                if (!storeTables[t.store_id]) storeTables[t.store_id] = [];
+                storeTables[t.store_id].push(t.name);
+            });
+
+            // Load categories
+            const { data: catsData } = await supabase.from('categories').select('*');
+            const categories = {};
+            (catsData || []).forEach(c => {
+                if (!categories[c.store_id]) categories[c.store_id] = [];
+                categories[c.store_id].push({ id: c.id, name: c.name });
+            });
+
+            // Load products
+            const { data: prodsData } = await supabase.from('products').select('*');
+            const products = {};
+            (prodsData || []).forEach(p => {
+                if (!products[p.store_id]) products[p.store_id] = [];
+                products[p.store_id].push({ id: p.id, store_id: p.store_id, name: p.name, price: p.price, image: p.image, category: p.category, description: p.description });
+            });
+
+            // Load orders (free: 3 ngày, vip: 365 ngày)
+            const isPremium = user.isPremium || user.role === 'sadmin';
+            const daysToKeep = isPremium ? 365 : 3;
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - daysToKeep);
+            let ordersQuery = supabase.from('orders').select('*').gte('time', cutoff.toISOString()).order('time', { ascending: false });
+            if (storeId) ordersQuery = ordersQuery.eq('store_id', storeId);
+            const { data: ordersData } = await ordersQuery;
+            const orders = (ordersData || []).map(mapOrder);
+
+            // Load notifications cho user hiện tại
+            const { data: notiData } = await supabase.from('notifications').select('*').eq('user_id', user.username).order('time', { ascending: false });
+            const notifications = (notiData || []).map(mapNotification);
+
+            // Load upgrade requests (sadmin xem hết)
+            const { data: upgradeData } = await supabase.from('upgrade_requests').select('*').order('time', { ascending: false });
+            const upgradeRequests = (upgradeData || []).map(mapUpgradeReq);
+
+            set({ USERS, storeInfos, storeTables, categories, products, orders, notifications, upgradeRequests, isLoading: false });
+        } catch (e) {
+            console.error('[loadInitialData]', e);
+            set({ isLoading: false });
+        }
+    },
+
+    login: async (username, pass) => {
+        const cleanUsername = username.toLowerCase().replace(/\s/g, '');
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('*')
+            .ilike('username', cleanUsername);
+
+        if (error || !users?.length) return 'invalid';
+
+        const rawUser = users.find(u => u.pass === pass);
+        if (!rawUser) return 'invalid';
+
+        let user = mapUser(rawUser);
+
+        // Kiểm tra hạn dùng
+        if (user.role === 'admin' && user.expiresAt) {
+            const isExpired = Date.now() > new Date(user.expiresAt).getTime();
+            if (isExpired && user.isPremium) {
+                user = { ...user, isPremium: false, showVipExpired: true };
+                await supabase.from('users').update({ is_premium: false, show_vip_expired: true }).eq('username', user.username);
             }
         }
-    )
-);
 
-// Derived Hook để Reactivity với User và StoreView
+        set({ currentUser: user });
+        await get().loadInitialData(user);
+        return 'success';
+    },
+
+    register: async ({ fullname, phone, storeName, username, password }) => {
+        // Kiểm tra trùng username
+        const { data: existing } = await supabase.from('users').select('username').eq('username', username);
+        if (existing?.length) {
+            get().showToast('Tên đăng nhập đã tồn tại', 'error');
+            return 'exists';
+        }
+
+        const newUser = { username, pass: password, role: 'admin', fullname, phone: phone || '', is_premium: false };
+
+        const { error: uErr } = await supabase.from('users').insert(newUser);
+        if (uErr) { get().showToast('Đăng ký thất bại', 'error'); return 'error'; }
+
+        await supabase.from('store_infos').insert({
+            store_id: username,
+            name: storeName || fullname,
+            phone: phone || '',
+            is_premium: false
+        });
+
+        const mappedUser = mapUser(newUser);
+        set(state => ({ currentUser: mappedUser, USERS: [...state.USERS, mappedUser] }));
+        await get().loadInitialData(mappedUser);
+        return 'success';
+    },
+
+    logout: () => set({
+        currentUser: null,
+        USERS: [], storeInfos: {}, storeTables: {},
+        categories: {}, products: {}, orders: [],
+        notifications: [], upgradeRequests: [],
+        cart: [], selectedTable: '',
+    }),
+
+    updateUserAvatar: async (avatarUrl) => {
+        const { currentUser } = get();
+        if (!currentUser) return;
+        await supabase.from('users').update({ avatar: avatarUrl }).eq('username', currentUser.username);
+        const updatedUser = { ...currentUser, avatar: avatarUrl };
+        set(state => ({
+            currentUser: updatedUser,
+            USERS: state.USERS.map(u => u.username === currentUser.username ? updatedUser : u)
+        }));
+    },
+
+    addStaff: async ({ fullname, phone, username, password, role = 'staff', createdBy }) => {
+        const state = get();
+        const isAdmin = state.currentUser?.role === 'admin';
+        const adminUsername = state.currentUser?.username;
+        const isPremium = state.currentUser?.isPremium;
+
+        if (isAdmin && !isPremium) {
+            const myStaffCount = state.USERS.filter(u => u.role === 'staff' && u.createdBy === adminUsername).length;
+            if (myStaffCount >= 1) {
+                setTimeout(() => get().showConfirm(
+                    'Tài khoản Miễn Phí đã đạt giới hạn 1 nhân viên. Bạn có muốn nâng cấp?',
+                    () => get().setUpgradeModalOpen(true)
+                ), 0);
+                return;
+            }
+        }
+
+        if (state.USERS.find(u => u.username === username)) {
+            get().showToast('Tên đăng nhập đã tồn tại', 'error');
+            return;
+        }
+
+        const newStaffRow = {
+            username, pass: password, role,
+            fullname, phone: phone || '',
+            avatar: '', is_premium: false,
+            created_by: createdBy || adminUsername
+        };
+
+        const { error } = await supabase.from('users').insert(newStaffRow);
+        if (error) { get().showToast('Thêm tài khoản thất bại', 'error'); return; }
+
+        // Nếu tạo admin mới → tạo store_infos
+        if (role === 'admin') {
+            await supabase.from('store_infos').insert({
+                store_id: username, name: fullname || username,
+                phone: phone || '', is_premium: false
+            });
+        }
+
+        const mapped = mapUser(newStaffRow);
+        get().showToast('Thêm tài khoản thành công!');
+        set(state => ({
+            USERS: [...state.USERS, mapped],
+            storeInfos: role === 'admin'
+                ? { ...state.storeInfos, [username]: { name: fullname || username, phone: phone || '', address: '', logoUrl: '', bankId: '', bankAccount: '', bankOwner: '', isPremium: false } }
+                : state.storeInfos
+        }));
+    },
+
+    updateUser: async (username, updatedData) => {
+        const state = get();
+        const existingUser = state.USERS.find(u => u.username === username);
+        const vipRevoked = existingUser?.isPremium === true && updatedData.isPremium === false;
+        if (vipRevoked) updatedData = { ...updatedData, showVipExpired: true };
+
+        // Map camelCase → snake_case cho Supabase
+        const dbData = {};
+        if ('fullname' in updatedData) dbData.fullname = updatedData.fullname;
+        if ('phone' in updatedData) dbData.phone = updatedData.phone;
+        if ('pass' in updatedData) dbData.pass = updatedData.pass;
+        if ('isPremium' in updatedData) dbData.is_premium = updatedData.isPremium;
+        if ('expiresAt' in updatedData) dbData.expires_at = updatedData.expiresAt;
+        if ('showVipExpired' in updatedData) dbData.show_vip_expired = updatedData.showVipExpired;
+        if ('showVipCongrat' in updatedData) dbData.show_vip_congrat = updatedData.showVipCongrat;
+        if ('avatar' in updatedData) dbData.avatar = updatedData.avatar;
+
+        await supabase.from('users').update(dbData).eq('username', username);
+
+        get().showToast('Cập nhật thông tin thành công!');
+        const isSelf = state.currentUser?.username === username;
+        set(state => ({
+            USERS: state.USERS.map(u => u.username === username ? { ...u, ...updatedData } : u),
+            currentUser: isSelf ? { ...state.currentUser, ...updatedData } : state.currentUser
+        }));
+    },
+
+    deleteUser: async (username) => {
+        await supabase.from('users').delete().eq('username', username);
+        get().showToast(`Đã xoá người dùng ${username}`);
+        set(state => ({ USERS: state.USERS.filter(u => u.username !== username) }));
+    },
+
+    cancelOrder: async (orderId) => {
+        await supabase.from('orders').delete().eq('id', orderId);
+        set(state => ({ orders: state.orders.filter(o => o.id !== orderId) }));
+    },
+
+    // ── Không còn cần cleanupStoreData vì query DB đã filter theo ngày ─
+    cleanupStoreData: () => { },
+
+    // ── Confirm Modal ─────────────────────────────────────────
+    confirmDialog: null,
+    showConfirm: (message, onConfirm) => set({ confirmDialog: { message, onConfirm } }),
+    closeConfirm: () => set({ confirmDialog: null }),
+
+    // ── Notifications ─────────────────────────────────────────
+    notifications: [],
+    addNotification: async (userId, title, message) => {
+        const newN = { id: Date.now().toString(), user_id: userId, title, message, time: new Date().toISOString(), read: false };
+        await supabase.from('notifications').insert(newN);
+        set(state => ({ notifications: [mapNotification(newN), ...state.notifications] }));
+    },
+    markNotificationAsRead: async (id) => {
+        await supabase.from('notifications').update({ read: true }).eq('id', id);
+        set(state => ({ notifications: state.notifications.map(n => n.id === id ? { ...n, read: true } : n) }));
+    },
+    clearNotifications: async (userId) => {
+        await supabase.from('notifications').delete().eq('user_id', userId);
+        set(state => ({ notifications: state.notifications.filter(n => n.userId !== userId) }));
+    },
+
+    // ── Upgrade Modal ─────────────────────────────────────────
+    isUpgradeModalOpen: false,
+    setUpgradeModalOpen: (isOpen) => set({ isUpgradeModalOpen: isOpen }),
+
+    // ── Upgrade Requests ──────────────────────────────────────
+    upgradeRequests: [],
+    requestUpgrade: async (username, planIndex, planName, months) => {
+        const state = get();
+        if (state.upgradeRequests.some(r => r.username === username)) {
+            get().showToast('Bạn đã có yêu cầu đang chờ duyệt!', 'error');
+            return;
+        }
+        const newReq = { id: Date.now().toString(), username, plan_index: planIndex, plan_name: planName, months, time: new Date().toISOString() };
+        await supabase.from('upgrade_requests').insert(newReq);
+        get().showToast(`Đã gửi yêu cầu nâng cấp ${planName}!`);
+        set(state => ({
+            upgradeRequests: [...state.upgradeRequests, mapUpgradeReq(newReq)],
+            isUpgradeModalOpen: false
+        }));
+    },
+
+    approveUpgrade: async (requestId) => {
+        const state = get();
+        const req = state.upgradeRequests.find(r => r.id === requestId);
+        if (!req) return;
+
+        const targetUser = state.USERS.find(u => u.username === req.username);
+        if (!targetUser) { get().showToast('Không tìm thấy tài khoản', 'error'); return; }
+
+        const baseDate = (targetUser.expiresAt && new Date(targetUser.expiresAt).getTime() > Date.now())
+            ? new Date(targetUser.expiresAt) : new Date();
+        baseDate.setDate(baseDate.getDate() + (req.months * 30));
+
+        const updates = { is_premium: true, expires_at: baseDate.toISOString(), show_vip_congrat: true };
+        await supabase.from('users').update(updates).eq('username', req.username);
+        await supabase.from('store_infos').update({ is_premium: true }).eq('store_id', req.username);
+        await supabase.from('upgrade_requests').delete().eq('id', requestId);
+
+        const notiRow = {
+            id: Date.now().toString(), user_id: req.username,
+            title: 'Nâng cấp VIP thành công',
+            message: `Yêu cầu gói ${req.planName} đã được duyệt. Hạn đến ${baseDate.toLocaleDateString('vi-VN')}`,
+            time: new Date().toISOString(), read: false
+        };
+        await supabase.from('notifications').insert(notiRow);
+
+        get().showToast(`Đã duyệt gói ${req.planName} cho ${req.username}`);
+        const isSelf = state.currentUser?.username === req.username;
+        set(state => ({
+            USERS: state.USERS.map(u => u.username === req.username ? { ...u, isPremium: true, expiresAt: baseDate.toISOString(), showVipCongrat: true } : u),
+            storeInfos: { ...state.storeInfos, [req.username]: { ...state.storeInfos[req.username], isPremium: true } },
+            upgradeRequests: state.upgradeRequests.filter(r => r.id !== requestId),
+            notifications: [mapNotification(notiRow), ...state.notifications],
+            currentUser: isSelf ? { ...state.currentUser, isPremium: true, expiresAt: baseDate.toISOString(), showVipCongrat: true } : state.currentUser,
+        }));
+    },
+
+    rejectUpgrade: async (requestId) => {
+        const state = get();
+        const req = state.upgradeRequests.find(r => r.id === requestId);
+        await supabase.from('upgrade_requests').delete().eq('id', requestId);
+        if (req) {
+            const notiRow = {
+                id: Date.now().toString(), user_id: req.username,
+                title: 'Yêu cầu VIP bị từ chối',
+                message: `Yêu cầu gói ${req.planName} chưa được duyệt.`,
+                time: new Date().toISOString(), read: false
+            };
+            await supabase.from('notifications').insert(notiRow);
+            set(state => ({
+                upgradeRequests: state.upgradeRequests.filter(r => r.id !== requestId),
+                notifications: [mapNotification(notiRow), ...state.notifications]
+            }));
+        }
+        get().showToast('Đã từ chối yêu cầu nâng cấp', 'error');
+    },
+
+    clearVipCongrat: async (username) => {
+        await supabase.from('users').update({ show_vip_congrat: false }).eq('username', username);
+        set(state => ({
+            USERS: state.USERS.map(u => u.username === username ? { ...u, showVipCongrat: false } : u),
+            currentUser: state.currentUser?.username === username ? { ...state.currentUser, showVipCongrat: false } : state.currentUser,
+        }));
+    },
+
+    closeVipExpiredModal: async (username) => {
+        await supabase.from('users').update({ show_vip_expired: false }).eq('username', username);
+        set(state => ({
+            USERS: state.USERS.map(u => u.username === username ? { ...u, showVipExpired: false } : u),
+            currentUser: state.currentUser?.username === username ? { ...state.currentUser, showVipExpired: false } : state.currentUser,
+        }));
+    },
+
+    // ── Store Info ────────────────────────────────────────────
+    storeInfos: {},
+    updateStoreInfo: async (info) => {
+        const storeId = get().getStoreId();
+        const dbData = {
+            name: info.name,
+            phone: info.phone,
+            address: info.address,
+            logo_url: info.logoUrl,
+            bank_id: info.bankId,
+            bank_account: info.bankAccount,
+            bank_owner: info.bankOwner,
+        };
+        Object.keys(dbData).forEach(k => dbData[k] === undefined && delete dbData[k]);
+        await supabase.from('store_infos').upsert({ store_id: storeId, ...dbData });
+        set(state => ({
+            storeInfos: { ...state.storeInfos, [storeId]: { ...state.storeInfos[storeId], ...info } }
+        }));
+    },
+
+    // ── Store Tables ──────────────────────────────────────────
+    storeTables: {},
+    addTable: async (tableName) => {
+        const storeId = get().getStoreId();
+        const currentTables = get().storeTables[storeId] || [];
+        if (currentTables.includes(tableName)) return;
+        await supabase.from('store_tables').insert({ store_id: storeId, name: tableName, sort_order: currentTables.length });
+        set(state => ({
+            storeTables: { ...state.storeTables, [storeId]: [...currentTables, tableName] }
+        }));
+    },
+    removeTable: async (tableName) => {
+        const storeId = get().getStoreId();
+        const currentTables = get().storeTables[storeId] || [];
+        const newTables = currentTables.filter(t => t !== tableName);
+        await supabase.from('store_tables').delete().eq('store_id', storeId).eq('name', tableName);
+        set(state => ({
+            storeTables: { ...state.storeTables, [storeId]: newTables },
+            selectedTable: state.selectedTable === tableName ? (newTables[0] || '') : state.selectedTable
+        }));
+    },
+
+    // ── Categories ────────────────────────────────────────────
+    categories: {},
+    addCategory: async (categoryName) => {
+        const storeId = get().getStoreId();
+        const currentCategories = get().categories[storeId] || [];
+        const state = get();
+        const isPremium = state.currentUser?.isPremium;
+        const isSadmin = state.currentUser?.role === 'sadmin';
+        if (!isPremium && !isSadmin && currentCategories.length >= 2) {
+            setTimeout(() => get().showConfirm('Tài khoản Miễn Phí đã đạt giới hạn 2 phân loại. Nâng cấp để thêm không giới hạn?', () => get().setUpgradeModalOpen(true)), 0);
+            return;
+        }
+        const newCat = { id: 'cat_' + Date.now().toString(), store_id: storeId, name: categoryName };
+        await supabase.from('categories').insert(newCat);
+        set(state => ({ categories: { ...state.categories, [storeId]: [...currentCategories, { id: newCat.id, name: newCat.name }] } }));
+    },
+    updateCategory: async (updatedCategory) => {
+        const storeId = get().getStoreId();
+        await supabase.from('categories').update({ name: updatedCategory.name }).eq('id', updatedCategory.id);
+        set(state => ({
+            categories: { ...state.categories, [storeId]: (state.categories[storeId] || []).map(c => c.id === updatedCategory.id ? updatedCategory : c) }
+        }));
+    },
+    deleteCategory: async (categoryId) => {
+        const storeId = get().getStoreId();
+        await supabase.from('categories').delete().eq('id', categoryId);
+        await supabase.from('products').update({ category: '' }).eq('store_id', storeId).eq('category', categoryId);
+        set(state => ({
+            categories: { ...state.categories, [storeId]: (state.categories[storeId] || []).filter(c => c.id !== categoryId) },
+            products: { ...state.products, [storeId]: (state.products[storeId] || []).map(p => p.category === categoryId ? { ...p, category: '' } : p) }
+        }));
+    },
+
+    // ── Products ──────────────────────────────────────────────
+    products: {},
+    addProduct: async (product) => {
+        const storeId = get().getStoreId();
+        const currentProducts = get().products[storeId] || [];
+        const state = get();
+        const isPremium = state.currentUser?.isPremium;
+        const isSadmin = state.currentUser?.role === 'sadmin';
+        if (!isPremium && !isSadmin && currentProducts.length >= 5) {
+            setTimeout(() => get().showConfirm('Tài khoản Miễn Phí đã đạt giới hạn 5 món. Nâng cấp để thêm không giới hạn?', () => get().setUpgradeModalOpen(true)), 0);
+            return;
+        }
+        const newProd = { ...product, id: Date.now().toString(), store_id: storeId };
+        const { error } = await supabase.from('products').insert({
+            id: newProd.id, store_id: storeId, name: newProd.name,
+            price: newProd.price, image: newProd.image || '',
+            category: newProd.category || '', description: newProd.description || ''
+        });
+        if (error) { get().showToast('Thêm món thất bại', 'error'); return; }
+        set(state => ({ products: { ...state.products, [storeId]: [newProd, ...currentProducts] } }));
+    },
+    updateProduct: async (updatedProduct) => {
+        const storeId = get().getStoreId();
+        await supabase.from('products').update({
+            name: updatedProduct.name, price: updatedProduct.price,
+            image: updatedProduct.image, category: updatedProduct.category,
+            description: updatedProduct.description
+        }).eq('id', updatedProduct.id);
+        set(state => ({
+            products: { ...state.products, [storeId]: (state.products[storeId] || []).map(p => p.id === updatedProduct.id ? updatedProduct : p) }
+        }));
+    },
+    deleteProduct: async (productId) => {
+        const storeId = get().getStoreId();
+        await supabase.from('products').delete().eq('id', productId);
+        set(state => ({
+            products: { ...state.products, [storeId]: (state.products[storeId] || []).filter(p => p.id !== productId) }
+        }));
+    },
+
+    // ── Orders ────────────────────────────────────────────────
+    orders: [],
+    updateOrderStatus: async (orderId, status) => {
+        await supabase.from('orders').update({ status }).eq('id', orderId);
+        set(state => ({ orders: state.orders.map(o => o.id === orderId ? { ...o, status } : o) }));
+    },
+    updateOrderPaymentStatus: async (orderId, paymentStatus) => {
+        await supabase.from('orders').update({ payment_status: paymentStatus }).eq('id', orderId);
+        set(state => ({ orders: state.orders.map(o => o.id === orderId ? { ...o, paymentStatus } : o) }));
+    },
+    updateOrderItemStatus: async (orderId, itemId, isDone) => {
+        const order = get().orders.find(o => o.id === orderId);
+        if (!order) return;
+        const newItems = order.items.map(item => item.id === itemId ? { ...item, isDone } : item);
+        await supabase.from('orders').update({ items: newItems }).eq('id', orderId);
+        set(state => ({
+            orders: state.orders.map(o => o.id === orderId ? { ...o, items: newItems } : o)
+        }));
+    },
+
+    checkoutOrder: async (paymentStatus = 'unpaid') => {
+        const state = get();
+        if (state.cart.length === 0) return;
+
+        const isPremium = state.currentUser?.isPremium;
+        const isSadmin = state.currentUser?.role === 'sadmin';
+
+        if (!isPremium && !isSadmin) {
+            const todayStr = new Date().toDateString();
+            const storeOwner = state.currentUser?.role === 'staff' ? state.currentUser?.createdBy : state.currentUser?.username;
+            const storeUsers = state.USERS.filter(u => u.username === storeOwner || u.createdBy === storeOwner).map(u => u.username);
+            const totalToday = state.orders.filter(o => storeUsers.includes(o.createdBy) && new Date(o.time).toDateString() === todayStr).length;
+            if (totalToday >= 10) {
+                setTimeout(() => get().showConfirm('Đã đạt 10 đơn hôm nay (giới hạn Miễn Phí). Nâng cấp để tạo không giới hạn?', () => get().setUpgradeModalOpen(true)), 0);
+                return;
+            }
+        }
+
+        const totalAmount = get().getCartTotal();
+        const storeId = get().getStoreId();
+        const newOrder = {
+            id: `ORD-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+            store_id: storeId,
+            table_name: state.selectedTable,
+            items: state.cart.map(item => ({ ...item, isDone: false })),
+            status: 'pending',
+            payment_status: paymentStatus,
+            time: new Date().toISOString(),
+            total_amount: totalAmount,
+            created_by: state.currentUser?.username || 'unknown',
+        };
+
+        const { error } = await supabase.from('orders').insert(newOrder);
+        if (error) { get().showToast('Tạo đơn thất bại', 'error'); return; }
+
+        set(state => ({ orders: [mapOrder(newOrder), ...state.orders], cart: [] }));
+    },
+
+    // ── Cart (local only) ─────────────────────────────────────
+    cart: [],
+    selectedCategory: 'all',
+    searchQuery: '',
+    selectedTable: '',
+    sadminViewStoreId: 'all',
+    setSadminViewStoreId: (storeId) => set({ sadminViewStoreId: storeId }),
+    setSelectedTable: (table) => set({ selectedTable: table }),
+    theme: 'light',
+    toast: null,
+
+    addToCart: (product) => set(state => {
+        const existing = state.cart.find(item => item.id === product.id);
+        if (existing) return { cart: state.cart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item) };
+        return { cart: [...state.cart, { ...product, quantity: 1, note: '' }] };
+    }),
+    removeFromCart: (productId) => set(state => ({ cart: state.cart.filter(item => item.id !== productId) })),
+    updateQuantity: (productId, amount) => set(state => ({
+        cart: state.cart.map(item => item.id === productId ? { ...item, quantity: Math.max(1, item.quantity + amount) } : item)
+    })),
+    addNote: (productId, note) => set(state => ({
+        cart: state.cart.map(item => item.id === productId ? { ...item, note } : item)
+    })),
+    clearCart: () => set({ cart: [] }),
+    getCartTotal: () => get().cart.reduce((total, item) => total + (item.price * item.quantity), 0),
+
+    setCategory: (category) => set({ selectedCategory: category }),
+    setSearchQuery: (query) => set({ searchQuery: query }),
+
+    showToast: (message, type = 'success') => {
+        set({ toast: { message, type } });
+        setTimeout(() => set(state => state.toast?.message === message ? { toast: null } : state), 1800);
+    },
+
+    toggleTheme: () => set(state => {
+        const newTheme = state.theme === 'light' ? 'dark' : 'light';
+        document.documentElement.classList.toggle('dark', newTheme === 'dark');
+        return { theme: newTheme };
+    }),
+
+    bestSellers: [],
+}));
+
+// ── Derived Hook ──────────────────────────────────────────────
 export const useStoreId = () => useStore(state => {
     const user = state.currentUser;
     if (!user) return 'sadmin';
-    if (user.role === 'sadmin') {
-        return state.sadminViewStoreId === 'all' ? 'sadmin' : state.sadminViewStoreId;
-    }
+    if (user.role === 'sadmin') return state.sadminViewStoreId === 'all' ? 'sadmin' : state.sadminViewStoreId;
     return user.role === 'staff' ? user.createdBy : user.username;
 });

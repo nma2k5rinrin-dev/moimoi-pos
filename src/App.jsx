@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from './components/Layout/AppLayout';
+import { useRealtimeSync } from './store/useRealtimeSync';
 
 // Pages
 import OrderPage from './pages/OrderPage';
@@ -13,20 +14,28 @@ import { useStore } from './store/useStore';
 const PrivateRoute = ({ children, allowedRoles }) => {
   const currentUser = useStore(state => state.currentUser);
   if (!currentUser) return <Navigate to="/login" replace />;
-
-  if (allowedRoles && !allowedRoles.includes(currentUser.role)) {
-    return <Navigate to="/" replace />;
-  }
-
+  if (allowedRoles && !allowedRoles.includes(currentUser.role)) return <Navigate to="/" replace />;
   return children;
 };
+
+// Hook Realtime chỉ chạy khi đã đăng nhập
+function RealtimeSyncWrapper({ children }) {
+  useRealtimeSync();
+  return children;
+}
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<AuthPage />} />
-        <Route path="/" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
+        <Route path="/" element={
+          <PrivateRoute>
+            <RealtimeSyncWrapper>
+              <AppLayout />
+            </RealtimeSyncWrapper>
+          </PrivateRoute>
+        }>
           <Route index element={<OrderPage />} />
           <Route path="kitchen" element={<KitchenPage />} />
           <Route path="dashboard" element={<PrivateRoute allowedRoles={['admin', 'sadmin']}><DashboardPage /></PrivateRoute>} />

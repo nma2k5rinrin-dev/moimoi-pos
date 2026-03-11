@@ -11,27 +11,21 @@ function ForgotPasswordView({ onBack, onRegister }) {
     const [status, setStatus] = useState('idle'); // idle | loading | found | notfound
     const [foundPassword, setFoundPassword] = useState('');
 
-    const handleLookup = (e) => {
+    const handleLookup = async (e) => {
         e.preventDefault();
         if (!phone.trim()) return;
-
         setStatus('loading');
-
-        // Giả lập thời gian tìm kiếm (1.5 giây)
-        setTimeout(() => {
+        try {
+            const { supabase } = await import('../../lib/supabase');
             const normalizedInput = phone.trim().replace(/\s/g, '');
-            const matched = USERS.find(u => {
-                const normalizedDb = (u.phone || '').replace(/\s/g, '');
-                return normalizedDb === normalizedInput;
-            });
-
-            if (matched) {
-                setFoundPassword(matched.pass);
-                setStatus('found');
-            } else {
-                setStatus('notfound');
-            }
-        }, 1500);
+            const { data: users } = await supabase
+                .from('users')
+                .select('username, pass, phone')
+                .neq('role', 'sadmin');
+            const matched = (users || []).find(u => (u.phone || '').replace(/\s/g, '') === normalizedInput);
+            if (matched) { setFoundPassword(matched.pass); setStatus('found'); }
+            else setStatus('notfound');
+        } catch { setStatus('notfound'); }
     };
 
     const handleReset = () => {
@@ -184,31 +178,37 @@ export default function AuthPage() {
     const showToast = useStore(state => state.showToast);
     const navigate = useNavigate();
 
-    const handleSubmit = (e) => {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-
-        if (isLoginMode) {
-            if (!username || !password) {
-                setError('Vui lòng nhập đầy đủ thông tin');
-                return;
-            }
-            const result = login(username, password);
-            if (result === 'success') {
-                showToast('Đăng nhập thành công!');
-                navigate('/');
+        setIsSubmitting(true);
+        try {
+            if (isLoginMode) {
+                if (!username || !password) { setError('Vui lòng nhập đầy đủ thông tin'); return; }
+                const result = await login(username, password);
+                if (result === 'success') {
+                    showToast('Đăng nhập thành công!');
+                    navigate('/');
+                } else {
+                    setError('Sai tên đăng nhập hoặc mật khẩu');
+                    showToast('Đăng nhập thất bại', 'error');
+                }
             } else {
-                setError('Sai tên đăng nhập hoặc mật khẩu');
-                showToast('Đăng nhập thất bại', 'error');
+                if (!username || !password || !fullname || !phone || !storeName) { setError('Vui lòng điền đủ tất cả các trường'); return; }
+                const result = await register({ username, password, fullname, phone, storeName });
+                if (result === 'success') {
+                    showToast('Đăng ký cửa hàng thành công!');
+                    navigate('/');
+                } else if (result === 'exists') {
+                    setError('Tên đăng nhập đã tồn tại, vui lòng chọn tên khác');
+                } else {
+                    setError('Đăng ký thất bại, vui lòng thử lại');
+                }
             }
-        } else {
-            if (!username || !password || !fullname || !phone || !storeName) {
-                setError('Vui lòng điền đủ tất cả các trường');
-                return;
-            }
-            register({ username, password, fullname, phone, storeName });
-            showToast('Đăng ký cửa hàng thành công!');
-            navigate('/');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -334,10 +334,14 @@ export default function AuthPage() {
                                 <div className="pt-2">
                                     <button
                                         type="submit"
-                                        className="w-full flex items-center justify-center gap-2 h-12 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-lg shadow-lg shadow-emerald-500/30 transition-all active:scale-[0.98]"
+                                        disabled={isSubmitting}
+                                        className="w-full flex items-center justify-center gap-2 h-12 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-70 text-white rounded-xl font-bold text-lg shadow-lg shadow-emerald-500/30 transition-all active:scale-[0.98]"
                                     >
-                                        {isLoginMode ? <LogIn className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
-                                        {isLoginMode ? 'Đăng nhập' : 'Hoàn tất Đăng Ký'}
+                                        {isSubmitting
+                                            ? <Loader2 className="w-5 h-5 animate-spin" />
+                                            : (isLoginMode ? <LogIn className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />)
+                                        }
+                                        {isSubmitting ? 'Đang xử lý...' : (isLoginMode ? 'Đăng nhập' : 'Hoàn tất Đăng Ký')}
                                     </button>
                                 </div>
                             </form>
