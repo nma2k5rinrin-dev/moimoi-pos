@@ -133,7 +133,12 @@ export const useStore = create((set, get) => ({
             const products = {};
             (prodsData || []).forEach(p => {
                 if (!products[p.store_id]) products[p.store_id] = [];
-                products[p.store_id].push({ id: p.id, store_id: p.store_id, name: p.name, price: p.price, image: p.image, category: p.category, description: p.description });
+                products[p.store_id].push({
+                    id: p.id, store_id: p.store_id, name: p.name, price: p.price,
+                    image: p.image, category: p.category, description: p.description,
+                    isOutofStock: p.is_out_of_stock || false,
+                    isHot: p.is_hot || false,
+                });
             });
 
             // Load orders (free: 3 ngày, vip: 365 ngày)
