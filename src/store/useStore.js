@@ -273,9 +273,23 @@ export const useStore = create((set, get) => ({
     },
 
     updateUserAvatar: async (avatarUrl) => {
+        if (!navigator.onLine) {
+            get().showToast('Lỗi: Bạn đang Offline, không thể đổi Avatar!', 'error');
+            return;
+        }
+
         const { currentUser } = get();
         if (!currentUser) return;
-        await supabase.from('users').update({ avatar: avatarUrl }).eq('username', currentUser.username);
+        
+        if (isSupabaseConfigured()) {
+            try {
+                await supabase.from('users').update({ avatar: avatarUrl }).eq('username', currentUser.username);
+            } catch (error) {
+                console.error('[updateUserAvatar]', error);
+                get().showToast('Lỗi kết nối khi cập nhật thiết lập', 'error');
+            }
+        }
+        
         const updatedUser = { ...currentUser, avatar: avatarUrl };
         set(state => ({
             currentUser: updatedUser,
@@ -284,6 +298,11 @@ export const useStore = create((set, get) => ({
     },
 
     addStaff: async ({ fullname, phone, username, password, role = 'staff', createdBy }) => {
+        if (!isSupabaseConfigured() || !navigator.onLine) {
+            get().showToast('Lỗi: Bạn đang Offline hoặc chưa cấu hình máy chủ!', 'error');
+            return;
+        }
+
         const state = get();
         const isAdmin = state.currentUser?.role === 'admin';
         const adminUsername = state.currentUser?.username;
@@ -312,15 +331,20 @@ export const useStore = create((set, get) => ({
             created_by: createdBy || adminUsername
         };
 
-        const { error } = await supabase.from('users').insert(newStaffRow);
-        if (error) { get().showToast('Thêm tài khoản thất bại', 'error'); return; }
+        try {
+            const { error } = await supabase.from('users').insert(newStaffRow);
+            if (error) { get().showToast('Thêm tài khoản thất bại', 'error'); return; }
 
-        // Nếu tạo admin mới → tạo store_infos
-        if (role === 'admin') {
-            await supabase.from('store_infos').insert({
-                store_id: username, name: fullname || username,
-                phone: phone || '', is_premium: false
-            });
+            // Nếu tạo admin mới → tạo store_infos
+            if (role === 'admin') {
+                await supabase.from('store_infos').insert({
+                    store_id: username, name: fullname || username,
+                    phone: phone || '', is_premium: false
+                });
+            }
+        } catch (error) {
+            console.error('[addStaff]', error);
+            get().showToast('Lỗi đường dẫn', 'error'); return;
         }
 
         const mapped = mapUser(newStaffRow);
@@ -350,7 +374,20 @@ export const useStore = create((set, get) => ({
         if ('showVipCongrat' in updatedData) dbData.show_vip_congrat = updatedData.showVipCongrat;
         if ('avatar' in updatedData) dbData.avatar = updatedData.avatar;
 
-        await supabase.from('users').update(dbData).eq('username', username);
+        if (isSupabaseConfigured() && !navigator.onLine) {
+             get().showToast('Lỗi: Bạn đang Offline, không thể ghi nhận thay đổi!', 'error');
+             return;
+        }
+
+        try {
+            if (isSupabaseConfigured()) {
+                await supabase.from('users').update(dbData).eq('username', username);
+            }
+        } catch (error) {
+            console.error('[updateUser]', error);
+            get().showToast('Có lỗi kết nối CSDL, tác vụ không thành công', 'error');
+            return;
+        }
 
         get().showToast('Cập nhật thông tin thành công!');
         const isSelf = state.currentUser?.username === username;
@@ -361,7 +398,18 @@ export const useStore = create((set, get) => ({
     },
 
     deleteUser: async (username) => {
-        await supabase.from('users').delete().eq('username', username);
+        if (!navigator.onLine) {
+            get().showToast('Lỗi: Bạn đang Offline, không thể xoá tài khoản!', 'error');
+            return;
+        }
+        if (isSupabaseConfigured()) {
+            try {
+                await supabase.from('users').delete().eq('username', username);
+            } catch (err) {
+                console.error('[deleteUser]', err);
+                get().showToast('Xoá hỏng do lỗi mạng', 'error'); return;
+            }
+        }
         get().showToast(`Đã xoá người dùng ${username}`);
         set(state => ({ USERS: state.USERS.filter(u => u.username !== username) }));
     },
@@ -529,6 +577,20 @@ export const useStore = create((set, get) => ({
             selectedTable: state.selectedTable === tableName ? (newTables[0] || '') : state.selectedTable
         }));
     },
+    updateTable: async (oldName, newName) => {
+        if (!oldName || !newName || oldName === newName) return;
+        const storeId = get().getStoreId();
+        const currentTables = get().storeTables[storeId] || [];
+        if (!currentTables.includes(oldName) || currentTables.includes(newName)) return;
+        
+        await supabase.from('store_tables').update({ name: newName }).eq('store_id', storeId).eq('name', oldName);
+        
+        const newTables = currentTables.map(t => t === oldName ? newName : t);
+        set(state => ({
+            storeTables: { ...state.storeTables, [storeId]: newTables },
+            selectedTable: state.selectedTable === oldName ? newName : state.selectedTable
+        }));
+    },
 
     // ── Categories ────────────────────────────────────────────
     categories: {},
@@ -620,6 +682,15 @@ export const useStore = create((set, get) => ({
         await supabase.from('orders').update({ items: newItems }).eq('id', orderId);
         set(state => ({
             orders: state.orders.map(o => o.id === orderId ? { ...o, items: newItems } : o)
+        }));
+    },
+    updateOrderItems: async (orderId, newItems, newTotalAmount) => {
+        const order = get().orders.find(o => o.id === orderId);
+        if (!order) return;
+        
+        await supabase.from('orders').update({ items: newItems, total_amount: newTotalAmount }).eq('id', orderId);
+        set(state => ({
+            orders: state.orders.map(o => o.id === orderId ? { ...o, items: newItems, totalAmount: newTotalAmount } : o)
         }));
     },
 

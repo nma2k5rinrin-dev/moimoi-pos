@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore, useStoreId } from '../../store/useStore';
-import { Clock, CheckCircle2, ChefHat, Check, X, User, Store } from 'lucide-react';
+import { Clock, CheckCircle2, ChefHat, Check, X, User, Store, Edit2, Plus, Minus } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -121,6 +121,9 @@ export default function KitchenPage() {
 
 function OrderCard({ order, statusConfig, timeDiffMins, isLate, users, updateOrderItemStatus, updateOrderStatus, updateOrderPaymentStatus, cancelOrder, showConfirm, showToast }) {
     const [expanded, setExpanded] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const updateOrderItems = useStore(state => state.updateOrderItems);
+    const products = useStore(state => state.products[order.storeId || 'sadmin'] || []);
 
     // Lấy tên hiển thị từ username
     const staffUser = users?.find(u => u.username === order.createdBy);
@@ -228,9 +231,23 @@ function OrderCard({ order, statusConfig, timeDiffMins, isLate, users, updateOrd
                     </div>
 
                     {/* Tổng tiền */}
-                    <div className="flex justify-between items-center px-1 pt-1 border-t border-slate-100">
+                    <div className="flex justify-between items-center px-1 pt-1 border-t border-slate-100 mt-2">
                         <span className="text-sm font-semibold text-slate-500">Tổng thu:</span>
-                        <span className="text-base font-bold text-emerald-600">{formatCurrency(order.totalAmount || 0)}</span>
+                        <div className="flex items-center gap-2">
+                            {order.paymentStatus !== 'paid' && statusConfig.id !== 'completed' && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsEditing(true);
+                                    }}
+                                    className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100"
+                                    title="Sửa món trong đơn"
+                                >
+                                    <Edit2 className="w-4 h-4" />
+                                </button>
+                            )}
+                            <span className="text-base font-bold text-emerald-600">{formatCurrency(order.totalAmount || 0)}</span>
+                        </div>
                     </div>
 
                     {/* Nút thao tác */}
@@ -298,10 +315,136 @@ function OrderCard({ order, statusConfig, timeDiffMins, isLate, users, updateOrd
 
     if (isUnpaid) {
         return (
-            <div className="order-unpaid-border shadow-sm">
+            <div className="order-unpaid-border shadow-sm relative">
                 {cardContent}
+                {isEditing && <EditOrderModal order={order} products={products} onClose={() => setIsEditing(false)} onSave={(newItems, newTotal) => { updateOrderItems(order.id, newItems, newTotal); setIsEditing(false); showToast('Đã cập nhật đơn hàng'); }} />}
             </div>
         );
     }
-    return cardContent;
+    return (
+        <div className="relative">
+            {cardContent}
+            {isEditing && <EditOrderModal order={order} products={products} onClose={() => setIsEditing(false)} onSave={(newItems, newTotal) => { updateOrderItems(order.id, newItems, newTotal); setIsEditing(false); showToast('Đã cập nhật đơn hàng'); }} />}
+        </div>
+    );
+}
+
+function EditOrderModal({ order, products, onClose, onSave }) {
+    const [items, setItems] = useState([...order.items]);
+
+    const handleUpdateQuantity = (idx, delta) => {
+        const newItems = [...items];
+        const newQuantity = newItems[idx].quantity + delta;
+        if (newQuantity <= 0) {
+            newItems.splice(idx, 1);
+        } else {
+            newItems[idx].quantity = newQuantity;
+        }
+        setItems(newItems);
+    };
+
+    const handleAddProduct = (product) => {
+        const existingIdx = items.findIndex(i => i.id === product.id && !i.note); 
+        if (existingIdx >= 0) {
+            handleUpdateQuantity(existingIdx, 1);
+        } else {
+            setItems([...items, { ...product, quantity: 1, note: '', isDone: false }]);
+        }
+    };
+
+    const handleSave = () => {
+        const newTotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+        onSave(items, newTotal);
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in" onClick={onClose}>
+            <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+                    <div>
+                        <h3 className="font-bold text-slate-800 text-lg">Sửa Đơn #{order.id}</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">{order.table}</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                    <div className="space-y-3">
+                        <h4 className="font-semibold text-sm text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg inline-block">Món trong đơn:</h4>
+                        {items.length === 0 && (
+                            <p className="text-sm text-slate-400 italic px-2">Đơn hàng hiện trống.</p>
+                        )}
+                        <div className="flex flex-col gap-2">
+                        {items.map((item, idx) => (
+                            <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border border-slate-200 rounded-xl gap-3">
+                                <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="font-semibold text-sm text-slate-800">{item.name}</span>
+                                    <span className="text-xs font-bold text-emerald-600">{formatCurrency(item.price)}</span>
+                                    {item.note && <span className="text-[10px] text-orange-500 bg-orange-50 px-2 py-0.5 rounded w-max mt-1 truncate">Ghi chú: {item.note}</span>}
+                                </div>
+                                <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg p-1 shrink-0 self-end sm:self-auto">
+                                    <button onClick={() => handleUpdateQuantity(idx, -1)} className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-md transition-all active:scale-95">
+                                        <Minus className="w-4 h-4" />
+                                    </button>
+                                    <span className="text-sm font-bold text-slate-800 w-5 text-center">{item.quantity}</span>
+                                    <button onClick={() => handleUpdateQuantity(idx, 1)} className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-blue-500 hover:bg-blue-50 rounded-md transition-all active:scale-95">
+                                        <Plus className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        </div>
+                    </div>
+
+                    <div className="space-y-3 pt-4 border-t border-slate-100">
+                        <h4 className="font-semibold text-sm text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg inline-block">Thêm món khác:</h4>
+                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+                            {products.filter(p => !p.isOutofStock).map(p => (
+                                <button
+                                    key={p.id}
+                                    onClick={() => handleAddProduct(p)}
+                                    className="flex items-center gap-2 p-2 bg-white border border-slate-200 hover:border-emerald-500/50 hover:bg-emerald-50 hover:shadow-sm rounded-xl text-left transition-all active:scale-95 group"
+                                >
+                                    {p.image ? (
+                                        <img src={p.image} className="w-10 h-10 rounded-lg object-cover bg-slate-100 shrink-0 border border-slate-100" />
+                                    ) : (
+                                        <div className="w-10 h-10 rounded-lg bg-slate-100 shrink-0 flex items-center justify-center border border-slate-200 text-slate-300">
+                                            <ChefHat className="w-5 h-5" />
+                                        </div>
+                                    )}
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="text-xs font-semibold text-slate-700 truncate group-hover:text-emerald-700">{p.name || 'Trống'}</span>
+                                        <span className="text-[10px] font-bold text-emerald-600">{formatCurrency(p.price)}</span>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                        {products.filter(p => !p.isOutofStock).length === 0 && (
+                            <p className="text-sm text-slate-400 italic px-2">Không có món ăn khả dụng.</p>
+                        )}
+                    </div>
+                </div>
+
+                <div className="p-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex items-center justify-between shrink-0">
+                    <div className="flex flex-col">
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tổng tiền mới</span>
+                        <span className="text-xl font-bold text-emerald-600">
+                            {formatCurrency(items.reduce((acc, item) => acc + item.price * item.quantity, 0))}
+                        </span>
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={onClose} className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors active:scale-95 text-sm">
+                            Hủy
+                        </button>
+                        <button onClick={handleSave} className="px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all active:scale-95 flex items-center gap-2 text-sm">
+                            <CheckCircle2 className="w-4 h-4" />
+                            Xong
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 }

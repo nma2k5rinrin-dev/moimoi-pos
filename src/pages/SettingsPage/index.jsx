@@ -198,14 +198,86 @@ function TableManagement({ onBack }) {
     const tables = useStore(state => state.storeTables[storeId] || []);
     const addTable = useStore(state => state.addTable);
     const removeTable = useStore(state => state.removeTable);
+    const updateTable = useStore(state => state.updateTable);
     const showConfirm = useStore(state => state.showConfirm);
-    const [newTable, setNewTable] = useState('');
+    const showToast = useStore(state => state.showToast);
 
-    const handleAdd = (e) => {
-        e.preventDefault();
-        if (!newTable.trim()) return;
-        addTable(newTable.trim());
-        setNewTable('');
+    const parsedTables = React.useMemo(() => {
+        const tree = {};
+        const standaloneName = "Khu Vực Chung (Không phân tầng)";
+        tables.forEach(t => {
+            const parts = t.split('::');
+            if (parts.length > 1) {
+                const floor = parts[0];
+                const table = parts.slice(1).join('::');
+                if (!tree[floor]) tree[floor] = [];
+                tree[floor].push({ fullName: t, shortName: table });
+            } else {
+                if (!tree[standaloneName]) tree[standaloneName] = [];
+                tree[standaloneName].push({ fullName: t, shortName: t });
+            }
+        });
+        return tree;
+    }, [tables]);
+
+    const handleAddFloor = () => {
+        const floorName = prompt("Nhập tên Tầng / Khu vực mới (VD: Tầng 1):");
+        if (!floorName?.trim()) return;
+        if (floorName.includes('::')) {
+            showToast("Tên khu vực không được chứa ký tự '::'", 'error');
+            return;
+        }
+        addTable(`${floorName.trim()}::Bàn 1`);
+    };
+
+    const handleAddTableToFloor = (floorName) => {
+        const tableName = prompt(`Nhập tên bàn mới thuộc ${floorName}:`);
+        if (!tableName?.trim()) return;
+        if (tableName.includes('::')) {
+            showToast("Tên bàn không được chứa ký tự '::'", 'error');
+            return;
+        }
+        const fullName = floorName === "Khu Vực Chung (Không phân tầng)" ? tableName.trim() : `${floorName}::${tableName.trim()}`;
+        if (tables.includes(fullName)) {
+            showToast("Tên bàn đã tồn tại trong khu vực này", 'error');
+            return;
+        }
+        addTable(fullName);
+    };
+
+    const handleEditTable = (oldFullName, currentShortName, isFloor) => {
+        const newShortName = prompt("Nhập tên bàn mới:", currentShortName);
+        if (!newShortName?.trim() || newShortName === currentShortName) return;
+        if (newShortName.includes('::')) {
+            showToast("Tên bàn không được chứa ký tự '::'", 'error');
+            return;
+        }
+        
+        let newFullName = newShortName.trim();
+        if (isFloor && isFloor !== "Khu Vực Chung (Không phân tầng)") {
+            newFullName = `${isFloor}::${newShortName.trim()}`;
+        }
+        
+        if (tables.includes(newFullName)) {
+            showToast("Tên bàn đã tồn tại", 'error');
+            return;
+        }
+        updateTable(oldFullName, newFullName);
+    };
+
+    const handleEditFloorName = (oldFloorName) => {
+        if (oldFloorName === "Khu Vực Chung (Không phân tầng)") return;
+        const newFloorName = prompt("Nhập tên Tầng / Khu vực mới:", oldFloorName);
+        if (!newFloorName?.trim() || newFloorName === oldFloorName) return;
+        if (newFloorName.includes('::')) {
+            showToast("Tên khu vực không được chứa ký tự '::'", 'error');
+            return;
+        }
+        
+        const floorTables = parsedTables[oldFloorName] || [];
+        floorTables.forEach(t => {
+            updateTable(t.fullName, `${newFloorName.trim()}::${t.shortName}`);
+        });
     };
 
     return (
@@ -217,38 +289,81 @@ function TableManagement({ onBack }) {
                             <ChevronLeft className="w-6 h-6" />
                         </button>
                         <div>
-                            <h2 className="text-xl font-bold text-slate-800">Quản Lý Bàn</h2>
-                            <p className="text-slate-500 text-sm mt-1">Danh sách bàn sẽ đồng bộ sang Order & Giỏ hàng</p>
+                            <h2 className="text-xl font-bold text-slate-800">Quản Lý Bàn & Khu Vực</h2>
+                            <p className="text-slate-500 text-sm mt-1">Sắp xếp bàn theo tầng/khu vực</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="p-6">
-                    <form onSubmit={handleAdd} className="flex gap-3 mb-6">
-                        <input
-                            type="text"
-                            className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium text-slate-800"
-                            placeholder="Nhập tên bàn mới (VD: Bàn 6, Tầng 2 - Bàn 1)..."
-                            value={newTable}
-                            onChange={e => setNewTable(e.target.value)}
-                        />
-                        <button type="submit" className="px-6 py-3 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition-colors shadow-md shadow-emerald-500/20 whitespace-nowrap">
-                            + Thêm Bàn
-                        </button>
-                    </form>
+                <div className="p-6 space-y-6">
+                    <button onClick={handleAddFloor} className="w-full md:w-auto px-6 py-3 bg-emerald-50 text-emerald-600 rounded-xl font-bold hover:bg-emerald-100 transition-colors border border-emerald-200 shadow-sm">
+                        + Thêm Tầng / Khu Vực Mới
+                    </button>
 
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {tables.map(table => (
-                            <div key={table} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-emerald-500/50 hover:shadow-md transition-all group">
-                                <span className="font-bold text-slate-700">{table}</span>
-                                <button
-                                    onClick={() => showConfirm(`Xóa bàn ${table}?`, () => removeTable(table))}
-                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
+                    <div className="flex flex-col gap-6">
+                        {Object.entries(parsedTables).map(([floorName, floorTables]) => (
+                            <div key={floorName} className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                                <div className="flex items-center justify-between p-4 bg-white border-b border-slate-200 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                                            <LayoutGrid className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-slate-800 text-base">{floorName}</h3>
+                                            <span className="text-slate-500 text-xs font-semibold">{floorTables.length} bàn</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {floorName !== "Khu Vực Chung (Không phân tầng)" && (
+                                            <button onClick={() => handleEditFloorName(floorName)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Đổi tên khu vực">
+                                                <Edit2 className="w-5 h-5" />
+                                            </button>
+                                        )}
+                                        <button onClick={() => handleAddTableToFloor(floorName)} className="px-4 py-2 bg-slate-800 text-white text-sm rounded-xl font-bold hover:bg-slate-700 transition-colors shadow-sm whitespace-nowrap">
+                                            + Thêm Bàn
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="p-4">
+                                    {floorTables.length > 0 ? (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                            {floorTables.map(t => (
+                                                <div key={t.fullName} className="flex flex-col bg-white border border-slate-200 rounded-xl hover:border-emerald-500/50 hover:shadow-md transition-all group overflow-hidden">
+                                                    <div className="flex items-center justify-center p-4 border-b border-slate-50 text-center font-bold text-slate-700 truncate">
+                                                        {t.shortName}
+                                                    </div>
+                                                    <div className="flex items-center border-t border-slate-50 p-1 bg-slate-50/50">
+                                                        <button
+                                                            onClick={() => handleEditTable(t.fullName, t.shortName, floorName)}
+                                                            className="flex-1 py-2 text-xs font-bold text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        >
+                                                            Sửa
+                                                        </button>
+                                                        <div className="w-px h-4 bg-slate-200 mx-1"></div>
+                                                        <button
+                                                            onClick={() => showConfirm(`Xóa ${t.shortName}?`, () => removeTable(t.fullName))}
+                                                            className="flex-1 py-2 text-xs font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                        >
+                                                            Xóa
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-6 text-slate-400 font-medium text-sm">
+                                            Chưa có bàn nào trong khu vực này.
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         ))}
+                        {Object.keys(parsedTables).length === 0 && (
+                            <div className="text-center py-10 border border-dashed border-slate-300 rounded-2xl bg-white text-slate-500 font-medium shadow-sm">
+                                Chưa có dữ liệu tầng hoặc bàn. <br />
+                                Hãy tạo Tầng / Khu vực đầu tiên!
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -290,11 +405,16 @@ function UserManagement({ onBack }) {
 
         // Map đúng trường mật khẩu của DB
         if (payload.password !== undefined) {
-            if (payload.password !== '') {
+            const existingUser = USERS.find(u => u.username === editingUsername);
+            if (payload.password !== '' && payload.password !== existingUser?.pass) {
                 const passError = validatePassword(payload.password);
                 if (passError) { showToast(passError, 'error'); return; }
             }
-            payload.pass = payload.password;
+            if (payload.password === '') {
+                 payload.pass = existingUser?.pass;
+            } else {
+                 payload.pass = payload.password;
+            }
             delete payload.password;
         }
 
@@ -661,6 +781,7 @@ function MenuManagement({ onBack }) {
     const updateCategory = useStore(state => state.updateCategory);
     const deleteCategory = useStore(state => state.deleteCategory);
     const showConfirm = useStore(state => state.showConfirm);
+    const showToast = useStore(state => state.showToast);
     const [editingId, setEditingId] = useState(null);
     const [editForm, setEditForm] = useState({});
 
@@ -675,6 +796,11 @@ function MenuManagement({ onBack }) {
     };
 
     const handleSave = () => {
+        if (!editForm.category) {
+            showToast('Vui lòng chọn phân loại cho món ăn', 'error');
+            return;
+        }
+
         if (editingId === 'new') {
             addProduct(editForm);
         } else {
