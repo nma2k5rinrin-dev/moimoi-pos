@@ -201,6 +201,10 @@ function TableManagement({ onBack }) {
     const updateTable = useStore(state => state.updateTable);
     const showConfirm = useStore(state => state.showConfirm);
     const showToast = useStore(state => state.showToast);
+    
+    const [promptConfig, setPromptConfig] = useState({ isOpen: false, title: '', placeholder: '', initialValue: '', onConfirm: () => {} });
+
+    const closePrompt = () => setPromptConfig({ isOpen: false });
 
     const parsedTables = React.useMemo(() => {
         const tree = {};
@@ -221,62 +225,94 @@ function TableManagement({ onBack }) {
     }, [tables]);
 
     const handleAddFloor = () => {
-        const floorName = prompt("Nhập tên Tầng / Khu vực mới (VD: Tầng 1):");
-        if (!floorName?.trim()) return;
-        if (floorName.includes('::')) {
-            showToast("Tên khu vực không được chứa ký tự '::'", 'error');
-            return;
-        }
-        addTable(`${floorName.trim()}::Bàn 1`);
+        setPromptConfig({
+            isOpen: true,
+            title: "Thêm Tầng / Khu vực mới",
+            placeholder: "Nhập tên Tầng / Khu vực mới (VD: Tầng 1)",
+            initialValue: "",
+            onConfirm: (floorName) => {
+                closePrompt();
+                if (!floorName?.trim()) return;
+                if (floorName.includes('::')) {
+                    showToast("Tên khu vực không được chứa ký tự '::'", 'error');
+                    return;
+                }
+                addTable(`${floorName.trim()}::Bàn 1`);
+            }
+        });
     };
 
     const handleAddTableToFloor = (floorName) => {
-        const tableName = prompt(`Nhập tên bàn mới thuộc ${floorName}:`);
-        if (!tableName?.trim()) return;
-        if (tableName.includes('::')) {
-            showToast("Tên bàn không được chứa ký tự '::'", 'error');
-            return;
-        }
-        const fullName = floorName === "Khu Vực Chung (Không phân tầng)" ? tableName.trim() : `${floorName}::${tableName.trim()}`;
-        if (tables.includes(fullName)) {
-            showToast("Tên bàn đã tồn tại trong khu vực này", 'error');
-            return;
-        }
-        addTable(fullName);
+        setPromptConfig({
+            isOpen: true,
+            title: `Thêm bàn vào ${floorName}`,
+            placeholder: `Nhập tên bàn mới thuộc ${floorName}`,
+            initialValue: "",
+            onConfirm: (tableName) => {
+                closePrompt();
+                if (!tableName?.trim()) return;
+                if (tableName.includes('::')) {
+                    showToast("Tên bàn không được chứa ký tự '::'", 'error');
+                    return;
+                }
+                const fullName = floorName === "Khu Vực Chung (Không phân tầng)" ? tableName.trim() : `${floorName}::${tableName.trim()}`;
+                if (tables.includes(fullName)) {
+                    showToast("Tên bàn đã tồn tại trong khu vực này", 'error');
+                    return;
+                }
+                addTable(fullName);
+            }
+        });
     };
 
     const handleEditTable = (oldFullName, currentShortName, isFloor) => {
-        const newShortName = prompt("Nhập tên bàn mới:", currentShortName);
-        if (!newShortName?.trim() || newShortName === currentShortName) return;
-        if (newShortName.includes('::')) {
-            showToast("Tên bàn không được chứa ký tự '::'", 'error');
-            return;
-        }
-        
-        let newFullName = newShortName.trim();
-        if (isFloor && isFloor !== "Khu Vực Chung (Không phân tầng)") {
-            newFullName = `${isFloor}::${newShortName.trim()}`;
-        }
-        
-        if (tables.includes(newFullName)) {
-            showToast("Tên bàn đã tồn tại", 'error');
-            return;
-        }
-        updateTable(oldFullName, newFullName);
+        setPromptConfig({
+            isOpen: true,
+            title: "Sửa Tên Bàn",
+            placeholder: "Nhập tên bàn mới",
+            initialValue: currentShortName,
+            onConfirm: (newShortName) => {
+                closePrompt();
+                if (!newShortName?.trim() || newShortName === currentShortName) return;
+                if (newShortName.includes('::')) {
+                    showToast("Tên bàn không được chứa ký tự '::'", 'error');
+                    return;
+                }
+                
+                let newFullName = newShortName.trim();
+                if (isFloor && isFloor !== "Khu Vực Chung (Không phân tầng)") {
+                    newFullName = `${isFloor}::${newShortName.trim()}`;
+                }
+                
+                if (tables.includes(newFullName)) {
+                    showToast("Tên bàn đã tồn tại", 'error');
+                    return;
+                }
+                updateTable(oldFullName, newFullName);
+            }
+        });
     };
 
     const handleEditFloorName = (oldFloorName) => {
         if (oldFloorName === "Khu Vực Chung (Không phân tầng)") return;
-        const newFloorName = prompt("Nhập tên Tầng / Khu vực mới:", oldFloorName);
-        if (!newFloorName?.trim() || newFloorName === oldFloorName) return;
-        if (newFloorName.includes('::')) {
-            showToast("Tên khu vực không được chứa ký tự '::'", 'error');
-            return;
-        }
-        
-        const floorTables = parsedTables[oldFloorName] || [];
-        floorTables.forEach(t => {
-            updateTable(t.fullName, `${newFloorName.trim()}::${t.shortName}`);
+        setPromptConfig({
+            isOpen: true,
+            title: "Đổi Tên Khu Vực",
+            placeholder: "Nhập tên Tầng / Khu vực mới",
+            initialValue: oldFloorName,
+            onConfirm: (newFloorName) => {
+                closePrompt();
+                if (!newFloorName?.trim() || newFloorName === oldFloorName) return;
+                if (newFloorName.includes('::')) {
+                    showToast("Tên khu vực không được chứa ký tự '::'", 'error');
+                    return;
+                }
+                
+                const floorTables = parsedTables[oldFloorName] || [];
+                floorTables.forEach(t => {
+                    updateTable(t.fullName, `${newFloorName.trim()}::${t.shortName}`);
+                });
+            }
         });
     };
 
@@ -366,6 +402,68 @@ function TableManagement({ onBack }) {
                         )}
                     </div>
                 </div>
+            </div>
+            
+            <PromptModal 
+                isOpen={promptConfig.isOpen}
+                title={promptConfig.title}
+                placeholder={promptConfig.placeholder}
+                initialValue={promptConfig.initialValue}
+                onConfirm={promptConfig.onConfirm}
+                onCancel={closePrompt}
+            />
+        </div>
+    );
+}
+
+function PromptModal({ isOpen, title, placeholder, initialValue, onConfirm, onCancel }) {
+    const [value, setValue] = React.useState('');
+    const inputRef = React.useRef(null);
+    
+    React.useEffect(() => {
+        if (isOpen) {
+            setValue(initialValue || '');
+            setTimeout(() => {
+                inputRef.current?.focus();
+            }, 100);
+        }
+    }, [isOpen, initialValue]);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onConfirm(value);
+    };
+
+    return (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in" onClick={onCancel}>
+            <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                    <h3 className="font-bold text-slate-800 text-lg">{title}</h3>
+                    <button type="button" onClick={onCancel} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-4">
+                    <input
+                        ref={inputRef}
+                        type="text"
+                        value={value}
+                        onChange={e => setValue(e.target.value)}
+                        placeholder={placeholder}
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium text-slate-800 placeholder:text-slate-400"
+                    />
+                    <div className="flex gap-2 justify-end mt-2">
+                        <button type="button" onClick={onCancel} className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors text-sm">
+                            Hủy
+                        </button>
+                        <button type="submit" className="px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all text-sm flex items-center gap-2">
+                            <Save className="w-4 h-4" />
+                            Đồng ý
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );
