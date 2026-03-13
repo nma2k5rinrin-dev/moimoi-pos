@@ -59,11 +59,7 @@ const mapUpgradeReq = (r) => r ? ({
     time: r.time,
 }) : null;
 
-// Check xem Supabase đã được cấu hình thật chưa
-export const isSupabaseConfigured = () => {
-    const url = import.meta.env.VITE_SUPABASE_URL || '';
-    return url.length > 0 && !url.includes('xxx.supabase.co') && url.startsWith('https://');
-};
+
 
 // ============================================================
 // Store
@@ -75,9 +71,7 @@ const DEFAULT_STORE_INFO = { name: 'Nhà Hàng Của Tôi', phone: '', address: 
 export const useStore = create((set, get) => ({
     // ── Auth & Users ─────────────────────────────────────────
     currentUser: null,
-    USERS: [
-        { username: 'sadmin', pass: '1', role: 'sadmin', fullname: 'Super Admin', avatar: '', isPremium: true },
-    ],
+    USERS: [],
     isLoading: false,
     // Khởi tạo với sadmin mặc định — tránh selector || {} tạo object mới mỗi render
     storeInfos: { sadmin: DEFAULT_STORE_INFO },
@@ -169,35 +163,6 @@ export const useStore = create((set, get) => ({
     login: async (username, pass) => {
         const cleanUsername = username.toLowerCase().replace(/\s/g, '');
 
-        // ── Fallback local khi Supabase chưa cấu hình ─────
-        if (!isSupabaseConfigured()) {
-            const localUser = get().USERS.find(u =>
-                u.username.toLowerCase() === cleanUsername && u.pass === pass
-            );
-            if (!localUser) return 'invalid';
-            set({ currentUser: localUser });
-            // Tải data local (rỗng, không có Supabase)
-            set({
-                storeInfos: { sadmin: { name: 'Nhà Hàng Của Tôi', phone: '', address: '', logoUrl: '', bankId: '', bankAccount: '', bankOwner: '', isPremium: true } },
-                storeTables: { sadmin: [] }, categories: { sadmin: [] }, products: { sadmin: [] },
-                orders: [], notifications: [], upgradeRequests: []
-            });
-            return 'success';
-        }
-
-        // ── Sadmin luôn dùng credentials local ────────────
-        const localSadmin = get().USERS.find(u =>
-            u.role === 'sadmin' && u.username.toLowerCase() === cleanUsername && u.pass === pass
-        );
-        if (localSadmin) {
-            set({ currentUser: localSadmin });
-            await get().loadInitialData(localSadmin);
-            return 'success';
-        }
-        // Nếu nhập đúng username sadmin nhưng sai pass → reject ngay
-        if (cleanUsername === 'sadmin') return 'invalid';
-
-        // ── Supabase login ─────────────────────────────────
         try {
             const { data: users, error } = await supabase
                 .from('users')
@@ -230,12 +195,6 @@ export const useStore = create((set, get) => ({
     },
 
     register: async ({ fullname, phone, storeName, username, password }) => {
-        if (!isSupabaseConfigured()) {
-            get().showToast('Lỗi: Cần kết nối CSDL Online để đăng ký!', 'error');
-            return 'offline';
-        }
-
-        // Kiểm tra bù trừ mạng internet
         if (!navigator.onLine) {
             get().showToast('Lỗi: Bạn đang Offline, không thể đăng ký!', 'error');
             return 'offline';
@@ -267,39 +226,25 @@ export const useStore = create((set, get) => ({
     },
 
     logout: () => {
-        // Khi không có Supabase: giữ USERS trong bộ nhớ (bảo tồn mật khẩu đã đổi)
-        // Khi có Supabase: reset USERS vì sẽ lấy lại từ DB lúc login
-        const base = {
-            currentUser: null,
-            storeInfos: { sadmin: DEFAULT_STORE_INFO }, storeTables: { sadmin: [] },
-            categories: { sadmin: [] }, products: { sadmin: [] }, orders: [],
+        useStore.setState({
+            currentUser: null, USERS: [],
+            storeInfos: {}, storeTables: {},
+            categories: {}, products: {}, orders: [],
             notifications: [], upgradeRequests: [],
             cart: [], selectedTable: '',
-        };
-        if (!isSupabaseConfigured()) {
-            // Giữ lại USERS (đã bao gồm mật khẩu mới nếu đã đổi)
-            useStore.setState(base);
-        } else {
-            useStore.setState({ ...base, USERS: [] });
-        }
+        });
     },
 
     updateUserAvatar: async (avatarUrl) => {
-        if (!navigator.onLine) {
-            get().showToast('Lỗi: Bạn đang Offline, không thể đổi Avatar!', 'error');
-            return;
-        }
-
         const { currentUser } = get();
         if (!currentUser) return;
         
-        if (isSupabaseConfigured()) {
-            try {
-                await supabase.from('users').update({ avatar: avatarUrl }).eq('username', currentUser.username);
-            } catch (error) {
-                console.error('[updateUserAvatar]', error);
-                get().showToast('Lỗi kết nối khi cập nhật thiết lập', 'error');
-            }
+        try {
+            await supabase.from('users').update({ avatar: avatarUrl }).eq('username', currentUser.username);
+        } catch (error) {
+            console.error('[updateUserAvatar]', error);
+            get().showToast('Lỗi kết nối khi cập nhật', 'error');
+            return;
         }
         
         const updatedUser = { ...currentUser, avatar: avatarUrl };
@@ -310,8 +255,8 @@ export const useStore = create((set, get) => ({
     },
 
     addStaff: async ({ fullname, phone, username, password, role = 'staff', createdBy }) => {
-        if (!isSupabaseConfigured() || !navigator.onLine) {
-            get().showToast('Lỗi: Bạn đang Offline hoặc chưa cấu hình máy chủ!', 'error');
+        if (!navigator.onLine) {
+            get().showToast('Lỗi: Bạn đang Offline!', 'error');
             return;
         }
 
@@ -386,15 +331,13 @@ export const useStore = create((set, get) => ({
         if ('showVipCongrat' in updatedData) dbData.show_vip_congrat = updatedData.showVipCongrat;
         if ('avatar' in updatedData) dbData.avatar = updatedData.avatar;
 
-        if (isSupabaseConfigured() && !navigator.onLine) {
+        if (!navigator.onLine) {
              get().showToast('Lỗi: Bạn đang Offline, không thể ghi nhận thay đổi!', 'error');
              return;
         }
 
         try {
-            if (isSupabaseConfigured()) {
-                await supabase.from('users').update(dbData).eq('username', username);
-            }
+            await supabase.from('users').update(dbData).eq('username', username);
         } catch (error) {
             console.error('[updateUser]', error);
             get().showToast('Có lỗi kết nối CSDL, tác vụ không thành công', 'error');
@@ -414,13 +357,11 @@ export const useStore = create((set, get) => ({
             get().showToast('Lỗi: Bạn đang Offline, không thể xoá tài khoản!', 'error');
             return;
         }
-        if (isSupabaseConfigured()) {
-            try {
-                await supabase.from('users').delete().eq('username', username);
-            } catch (err) {
-                console.error('[deleteUser]', err);
-                get().showToast('Xoá hỏng do lỗi mạng', 'error'); return;
-            }
+        try {
+            await supabase.from('users').delete().eq('username', username);
+        } catch (err) {
+            console.error('[deleteUser]', err);
+            get().showToast('Xoá hỏng do lỗi mạng', 'error'); return;
         }
         get().showToast(`Đã xoá người dùng ${username}`);
         set(state => ({ USERS: state.USERS.filter(u => u.username !== username) }));

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, useStoreId, isSupabaseConfigured } from '../../store/useStore';
+import { useStore, useStoreId } from '../../store/useStore';
 import { Store, User, Lock, LogIn, UserPlus, Phone, Briefcase, BadgeCheck, KeyRound, ArrowLeft, CheckCircle, XCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { validatePassword } from '../../utils/validators';
 
@@ -350,7 +350,7 @@ export default function AuthPage() {
                                 <div className="pt-2">
                                     <button
                                         type="submit"
-                                        disabled={isSubmitting || (!isLoginMode && !isSupabaseConfigured())}
+                                        disabled={isSubmitting}
                                         className="w-full flex items-center justify-center gap-2 h-12 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-70 text-white rounded-xl font-bold text-lg shadow-lg shadow-emerald-500/30 transition-all active:scale-[0.98]"
                                     >
                                         {isSubmitting
@@ -359,9 +359,6 @@ export default function AuthPage() {
                                         }
                                         {isSubmitting ? 'Đang xử lý...' : (isLoginMode ? 'Đăng nhập' : 'Hoàn tất Đăng Ký')}
                                     </button>
-                                    {!isLoginMode && !isSupabaseConfigured() && (
-                                        <p className="text-xs text-red-500 mt-2 text-center">Chế độ Offline hiện tại không hỗ trợ đăng ký cửa hàng mới</p>
-                                    )}
                                 </div>
                             </form>
 
