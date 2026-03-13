@@ -185,6 +185,18 @@ export const useStore = create((set, get) => ({
             return 'success';
         }
 
+        // ── Sadmin luôn dùng credentials local ────────────
+        const localSadmin = get().USERS.find(u =>
+            u.role === 'sadmin' && u.username.toLowerCase() === cleanUsername && u.pass === pass
+        );
+        if (localSadmin) {
+            set({ currentUser: localSadmin });
+            await get().loadInitialData(localSadmin);
+            return 'success';
+        }
+        // Nếu nhập đúng username sadmin nhưng sai pass → reject ngay
+        if (cleanUsername === 'sadmin') return 'invalid';
+
         // ── Supabase login ─────────────────────────────────
         try {
             const { data: users, error } = await supabase
