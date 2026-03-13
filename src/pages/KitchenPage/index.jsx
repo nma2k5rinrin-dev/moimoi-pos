@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useStore, useStoreId } from '../../store/useStore';
+import { useStore, useStoreId, EMPTY_ARRAY } from '../../store/useStore';
 import { Clock, CheckCircle2, ChefHat, Check, X, User, Store, Edit2, Plus, Minus } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { clsx } from 'clsx';
@@ -123,7 +123,7 @@ function OrderCard({ order, statusConfig, timeDiffMins, isLate, users, updateOrd
     const [expanded, setExpanded] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const updateOrderItems = useStore(state => state.updateOrderItems);
-    const products = useStore(state => state.products[order.storeId || 'sadmin'] || []);
+    const products = useStore(state => state.products[order.storeId || 'sadmin'] || EMPTY_ARRAY);
 
     // Lấy tên hiển thị từ username
     const staffUser = users?.find(u => u.username === order.createdBy);

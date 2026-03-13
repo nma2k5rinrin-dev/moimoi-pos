@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     Home,
     UtensilsCrossed,
@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useStore, useStoreId } from "../../store/useStore";
+import { useStore, useStoreId, EMPTY_OBJ } from "../../store/useStore";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { useKitchenBadges } from "../../hooks/useKitchenBadges";
@@ -29,7 +29,7 @@ export function Sidebar() {
     const navigate = useNavigate();
     const currentUser = useStore(state => state.currentUser);
     const storeId = useStoreId();
-    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin']) || {};
+    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin'] || EMPTY_OBJ);
     const logout = useStore(state => state.logout);
     const showToast = useStore(state => state.showToast);
     const updateUserAvatar = useStore(state => state.updateUserAvatar);

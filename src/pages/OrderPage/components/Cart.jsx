@@ -1,5 +1,5 @@
-﻿import React from 'react';
-import { useStore, useStoreId } from '../../../store/useStore';
+import React from 'react';
+import { useStore, useStoreId, EMPTY_ARRAY, EMPTY_OBJ } from '../../../store/useStore';
 import { formatCurrency } from '../../../utils/format';
 import { Trash2, Minus, Plus, ShoppingBag, Edit3, X, CreditCard, Banknote, QrCode } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -23,10 +23,10 @@ export function Cart() {
     const sadminViewStoreId = useStore(state => state.sadminViewStoreId);
     const storeId = useStoreId();
 
-    const tables = useStore(state => state.storeTables[storeId] || []);
+    const tables = useStore(state => state.storeTables[storeId] || EMPTY_ARRAY);
     const addNote = useStore(state => state.addNote);
     const orders = useStore(state => state.orders);
-    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin']) || {};
+    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin'] || EMPTY_OBJ);
     const total = getCartTotal();
 
     const visibleOrders = React.useMemo(() => {

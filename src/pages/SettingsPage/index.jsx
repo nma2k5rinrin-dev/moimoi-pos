@@ -27,7 +27,7 @@ import {
     Eye,
     EyeOff
 } from 'lucide-react';
-import { useStore, useStoreId } from '../../store/useStore';
+import { useStore, useStoreId, EMPTY_ARRAY, EMPTY_OBJ } from '../../store/useStore';
 import { validatePassword } from '../../utils/validators';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -195,7 +195,7 @@ function AccountSettings({ onBack }) {
 
 function TableManagement({ onBack }) {
     const storeId = useStoreId();
-    const tables = useStore(state => state.storeTables[storeId] || []);
+    const tables = useStore(state => state.storeTables[storeId] || EMPTY_ARRAY);
     const addTable = useStore(state => state.addTable);
     const removeTable = useStore(state => state.removeTable);
     const updateTable = useStore(state => state.updateTable);
@@ -870,11 +870,11 @@ function UserManagement({ onBack }) {
 
 function MenuManagement({ onBack }) {
     const storeId = useStoreId();
-    const products = useStore(state => state.products[storeId] || []);
+    const products = useStore(state => state.products[storeId] || EMPTY_ARRAY);
     const deleteProduct = useStore(state => state.deleteProduct);
     const updateProduct = useStore(state => state.updateProduct);
     const addProduct = useStore(state => state.addProduct);
-    const categories = useStore(state => state.categories[storeId] || []);
+    const categories = useStore(state => state.categories[storeId] || EMPTY_ARRAY);
     const addCategory = useStore(state => state.addCategory);
     const updateCategory = useStore(state => state.updateCategory);
     const deleteCategory = useStore(state => state.deleteCategory);
@@ -1118,7 +1118,7 @@ export default function SettingsPage() {
     const showToast = useStore(state => state.showToast);
     const currentUser = useStore(state => state.currentUser);
     const storeId = useStoreId();
-    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin']) || {};
+    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin'] || EMPTY_OBJ);
     const updateStoreInfo = useStore(state => state.updateStoreInfo);
 
     const [generalForm, setGeneralForm] = useState(storeInfo);

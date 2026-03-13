@@ -1,5 +1,5 @@
 import React from 'react';
-import { useStore, useStoreId } from '../../../store/useStore';
+import { useStore, useStoreId, EMPTY_ARRAY } from '../../../store/useStore';
 import { formatCurrency } from '../../../utils/format';
 import { Plus, Minus, Store } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -18,8 +18,8 @@ export function ProductGrid() {
     const cart = useStore(state => state.cart);
     const updateQuantity = useStore(state => state.updateQuantity);
     const storeId = useStoreId();
-    const products = useStore(state => state.products[storeId] || []);
-    const categories = useStore(state => state.categories[storeId] || []);
+    const products = useStore(state => state.products[storeId] || EMPTY_ARRAY);
+    const categories = useStore(state => state.categories[storeId] || EMPTY_ARRAY);
     const bestSellers = useStore(state => state.bestSellers);
     const USERS = useStore(state => state.USERS);
     const currentUser = useStore(state => state.currentUser);

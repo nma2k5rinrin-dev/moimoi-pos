@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 
+// Stable empty references — dùng trong selectors để tránh tạo ref mới mỗi render (gây infinite loop)
+export const EMPTY_ARRAY = [];
+export const EMPTY_OBJ = {};
+
 // ============================================================
 // Helper — chuyển đổi field name DB → App
 // ============================================================
@@ -107,7 +111,9 @@ export const useStore = create((set, get) => ({
             (storeInfosData || []).forEach(s => { storeInfos[s.store_id] = mapStoreInfo(s); });
 
             // Load storeTables
-            const { data: tablesData } = await supabase.from('store_tables').select('*').order('sort_order');
+            const tablesRes = await supabase.from('store_tables').select('*').order('sort_order');
+            if (tablesRes.error) console.warn('[loadInitialData] store_tables error:', tablesRes.error.message, tablesRes.error.hint || '');
+            const tablesData = tablesRes.data;
             const storeTables = {};
             (tablesData || []).forEach(t => {
                 if (!storeTables[t.store_id]) storeTables[t.store_id] = [];
@@ -123,7 +129,9 @@ export const useStore = create((set, get) => ({
             });
 
             // Load products
-            const { data: prodsData } = await supabase.from('products').select('*');
+            const prodsRes = await supabase.from('products').select('*');
+            if (prodsRes.error) console.warn('[loadInitialData] products error:', prodsRes.error.message, prodsRes.error.hint || '');
+            const prodsData = prodsRes.data;
             const products = {};
             (prodsData || []).forEach(p => {
                 if (!products[p.store_id]) products[p.store_id] = [];
@@ -142,7 +150,9 @@ export const useStore = create((set, get) => ({
             cutoff.setDate(cutoff.getDate() - daysToKeep);
             let ordersQuery = supabase.from('orders').select('*').gte('time', cutoff.toISOString()).order('time', { ascending: false });
             if (storeId) ordersQuery = ordersQuery.eq('store_id', storeId);
-            const { data: ordersData } = await ordersQuery;
+            const ordersRes = await ordersQuery;
+            if (ordersRes.error) console.warn('[loadInitialData] orders error:', ordersRes.error.message, ordersRes.error.hint || '');
+            const ordersData = ordersRes.data;
             const orders = (ordersData || []).map(mapOrder);
 
             // Load notifications cho user hiện tại
@@ -153,6 +163,8 @@ export const useStore = create((set, get) => ({
             const { data: upgradeData } = await supabase.from('upgrade_requests').select('*').order('time', { ascending: false });
             const upgradeRequests = (upgradeData || []).map(mapUpgradeReq);
 
+            // Đảm bảo sadmin luôn có storeInfo default
+            if (!storeInfos['sadmin']) storeInfos['sadmin'] = DEFAULT_STORE_INFO;
             set({ USERS, storeInfos, storeTables, categories, products, orders, notifications, upgradeRequests, isLoading: false });
         } catch (e) {
             console.error('[loadInitialData]', e);
@@ -490,7 +502,7 @@ export const useStore = create((set, get) => ({
     },
 
     // ── Store Info ────────────────────────────────────────────
-    storeInfos: {},
+    // (storeInfos đã khai báo ở trên với default sadmin, KHÔNG khai báo lại)
     updateStoreInfo: async (info) => {
         const storeId = get().getStoreId();
         const dbData = {
@@ -596,7 +608,7 @@ export const useStore = create((set, get) => ({
             price: newProd.price, image: newProd.image || '',
             category: newProd.category || '', description: newProd.description || ''
         });
-        if (error) { get().showToast('Thêm món thất bại', 'error'); return; }
+        if (error) { console.error('[addProduct] Supabase error:', error.message, error.hint || '', error.details || ''); get().showToast('Thêm món thất bại: ' + error.message, 'error'); return; }
         set(state => ({ products: { ...state.products, [storeId]: [newProd, ...currentProducts] } }));
     },
     updateProduct: async (updatedProduct) => {
@@ -680,7 +692,7 @@ export const useStore = create((set, get) => ({
         };
 
         const { error } = await supabase.from('orders').insert(newOrder);
-        if (error) { get().showToast('Tạo đơn thất bại', 'error'); return; }
+        if (error) { console.error('[checkoutOrder] Supabase error:', error.message, error.hint || '', error.details || ''); get().showToast('Tạo đơn thất bại: ' + error.message, 'error'); return; }
 
         set(state => ({ orders: [mapOrder(newOrder), ...state.orders], cart: [] }));
     },

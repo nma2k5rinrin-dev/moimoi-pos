@@ -1,5 +1,5 @@
-﻿import React, { useState } from 'react';
-import { useStore, useStoreId } from '../../../store/useStore';
+import React, { useState } from 'react';
+import { useStore, useStoreId, EMPTY_ARRAY, EMPTY_OBJ } from '../../../store/useStore';
 import { formatCurrency } from '../../../utils/format';
 import { ShoppingBag, X, Plus, Minus, Trash2, Edit3, CreditCard, Banknote, QrCode } from 'lucide-react';
 import { clsx } from "clsx";
@@ -24,10 +24,10 @@ export function MobileCart() {
     const sadminViewStoreId = useStore(state => state.sadminViewStoreId);
     const storeId = useStoreId();
 
-    const tables = useStore(state => state.storeTables[storeId] || []);
+    const tables = useStore(state => state.storeTables[storeId] || EMPTY_ARRAY);
     const addNote = useStore(state => state.addNote);
     const orders = useStore(state => state.orders);
-    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin']) || {};
+    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin'] || EMPTY_OBJ);
 
     const [editingNoteId, setEditingNoteId] = useState(null);
     const [showCheckoutModal, setShowCheckoutModal] = useState(false);

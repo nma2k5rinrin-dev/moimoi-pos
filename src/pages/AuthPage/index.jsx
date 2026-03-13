@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, useStoreId } from '../../store/useStore';
+import { useStore, useStoreId, EMPTY_OBJ } from '../../store/useStore';
 import { Store, User, Lock, LogIn, UserPlus, Phone, Briefcase, BadgeCheck, KeyRound, ArrowLeft, CheckCircle, XCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { validatePassword } from '../../utils/validators';
 
@@ -175,7 +175,7 @@ export default function AuthPage() {
     const register = useStore(state => state.register);
     const currentUser = useStore(state => state.currentUser);
     const storeId = useStoreId();
-    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin']) || {};
+    const storeInfo = useStore(state => state.storeInfos[storeId] || state.storeInfos['sadmin'] || EMPTY_OBJ);
     const showToast = useStore(state => state.showToast);
     const navigate = useNavigate();
 
