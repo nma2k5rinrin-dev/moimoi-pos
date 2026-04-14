@@ -1,47 +1,21 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AppLayout } from './components/Layout/AppLayout';
-import { useRealtimeSync } from './store/useRealtimeSync';
-
-// Pages
-import OrderPage from './pages/OrderPage';
-import KitchenPage from './pages/KitchenPage';
-import DashboardPage from './pages/DashboardPage';
-import SettingsPage from './pages/SettingsPage';
-import AuthPage from './pages/AuthPage';
-import { useStore } from './store/useStore';
-
-const PrivateRoute = ({ children, allowedRoles }) => {
-  const currentUser = useStore(state => state.currentUser);
-  if (!currentUser) return <Navigate to="/login" replace />;
-  if (allowedRoles && !allowedRoles.includes(currentUser.role)) return <Navigate to="/" replace />;
-  return children;
-};
-
-// Hook Realtime chỉ chạy khi đã đăng nhập
-function RealtimeSyncWrapper({ children }) {
-  useRealtimeSync();
-  return children;
-}
+import CustomerMenuPage from './pages/CustomerMenuPage';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<AuthPage />} />
-        <Route path="/" element={
-          <PrivateRoute>
-            <RealtimeSyncWrapper>
-              <AppLayout />
-            </RealtimeSyncWrapper>
-          </PrivateRoute>
-        }>
-          <Route index element={<OrderPage />} />
-          <Route path="kitchen" element={<KitchenPage />} />
-          <Route path="dashboard" element={<PrivateRoute allowedRoles={['admin', 'sadmin']}><DashboardPage /></PrivateRoute>} />
-          <Route path="settings" element={<PrivateRoute allowedRoles={['admin', 'sadmin']}><SettingsPage /></PrivateRoute>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
+        <Route path="/menu/:storeId" element={<CustomerMenuPage />} />
+        <Route path="*" element={
+          <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-orange-50 flex items-center justify-center p-6">
+            <div className="text-center max-w-sm">
+              <span className="text-6xl block mb-4">📱</span>
+              <h1 className="text-2xl font-extrabold text-slate-800 mb-2">MoiMoi Menu</h1>
+              <p className="text-slate-500 text-sm">Vui lòng quét mã QR tại bàn để xem thực đơn và đặt món.</p>
+            </div>
+          </div>
+        } />
       </Routes>
     </BrowserRouter>
   );

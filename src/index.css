@@ -8,7 +8,6 @@
   }
 }
 
-/* Micro-animations tiện ích */
 @layer utilities {
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out;
@@ -18,154 +17,38 @@
     animation: slideUp 0.4s ease-out;
   }
 
-  /* Ẩn thanh cuộn webkit cho cuộn ngang mượt */
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    /* IE and Edge */
-    scrollbar-width: none;
-    /* Firefox */
+  .animate-bounce-in {
+    animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   }
 
-  .hide-scrollbar::-webkit-scrollbar {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
     display: none;
-    /* Chrome, Safari and Opera */
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 8px);
   }
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* Kitchen Page Animations */
-@property --border-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-
-@keyframes border-spin {
-  to {
-    --border-angle: 360deg;
-  }
-}
-
-@keyframes cooking-bounce {
-
-  0%,
-  100% {
-    transform: translateY(0) rotate(0deg);
-  }
-
-  25% {
-    transform: translateY(-3px) rotate(-8deg);
-  }
-
-  75% {
-    transform: translateY(-1px) rotate(8deg);
-  }
-}
-
-@keyframes pending-spin {
-  0% {
-    transform: rotate(0deg);
-  }
-
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-@layer utilities {
-
-  /* Wrapper bọc ngoài OrderCard để tạo viền đỏ chạy vòng */
-  .order-unpaid-border {
-    position: relative;
-    border-radius: 1rem;
-    padding: 2px;
-    background: conic-gradient(from var(--border-angle),
-        transparent 0%,
-        transparent 80%,
-        #ef4444 88%,
-        #fca5a5 93%,
-        #ef4444 97%,
-        transparent 100%);
-    animation: border-spin 2s linear infinite;
-  }
-
-  /* Card bên trong, che phần giữa để lộ viền */
-  .order-unpaid-inner {
-    background: white;
-    border-radius: calc(1rem - 2px);
-    overflow: hidden;
-  }
-
-  .animate-cooking-icon {
-    animation: cooking-bounce 1s ease-in-out infinite;
-  }
-
-  .animate-pending-icon {
-    animation: pending-spin 2.5s linear infinite;
-  }
-}
-
-
-/* Base Dark Mode Support (Global overrides) */
-html.dark {
-  color-scheme: dark;
-}
-
-html.dark body {
-  background-color: #0f172a;
-  color: #f8fafc;
-}
-
-html.dark .bg-white {
-  background-color: #1e293b;
-  border-color: #334155;
-}
-
-html.dark .bg-slate-50,
-html.dark .bg-slate-100 {
-  background-color: #0f172a;
-  border-color: #334155;
-}
-
-html.dark .text-slate-800,
-html.dark .text-slate-700 {
-  color: #f8fafc;
-}
-
-html.dark .text-slate-600,
-html.dark .text-slate-500 {
-  color: #cbd5e1;
-}
-
-html.dark .border-slate-100,
-html.dark .border-slate-200 {
-  border-color: #334155;
-}
-
-html.dark .shadow-sm,
-html.dark .shadow-md,
-html.dark .shadow-lg,
-html.dark .shadow-xl {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+@keyframes bounceIn {
+  from { opacity: 0; transform: scale(0.3); }
+  to { opacity: 1; transform: scale(1); }
 }
