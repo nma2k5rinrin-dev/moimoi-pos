@@ -103,26 +103,26 @@ export default function CustomerMenuPage() {
         try {
             const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-                // Luôn tạo đơn mới (INSERT). 
-                // Database Trigger `handle_qr_order()` sẽ tự động tìm kiếm đơn cũ 
-                // (cả pending và processing) và gộp items vào nếu có.
-                const newOrder = {
-                    id: `QR-${Date.now()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-                    store_id: storeId,
-                    table_name: selectedTable,
-                    items: cart.map(item => ({ ...item, isDone: false })),
-                    status: 'pending',
-                    payment_status: 'unpaid',
-                    time: new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).replace(' ', 'T'),
-                    total_amount: totalAmount,
-                    created_by: 'customer',
-                };
+            // Luôn tạo đơn mới (INSERT). 
+            // Database Trigger `handle_qr_order()` sẽ tự động tìm kiếm đơn cũ 
+            // (cả pending và processing) và gộp items vào nếu có.
+            const newOrder = {
+                id: `QR-${Date.now()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+                store_id: storeId,
+                table_name: selectedTable,
+                items: cart.map(item => ({ ...item, isDone: false })),
+                status: 'pending',
+                payment_status: 'unpaid',
+                time: new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).replace(' ', 'T'),
+                total_amount: totalAmount,
+                created_by: 'customer',
+            };
 
-                const { error: insertErr } = await supabase.from('orders').insert(newOrder);
-                if (insertErr) {
-                    console.error('[CustomerMenuPage] submitOrder error:', insertErr);
-                    return false;
-                }
+            const { error: insertErr } = await supabase.from('orders').insert(newOrder);
+            if (insertErr) {
+                console.error('[CustomerMenuPage] submitOrder error:', insertErr);
+                return false;
+            }
 
             setLastOrderTotal(totalAmount);
             setCart([]);
@@ -207,7 +207,7 @@ export default function CustomerMenuPage() {
                             </div>
                         </div>
                     </div>
-                    
+
                     {/* Cục Search Bar & GIF */}
                     <div className="flex items-center gap-2 shrink-0">
                         <div className="relative w-[130px] sm:w-[170px]">
@@ -220,8 +220,10 @@ export default function CustomerMenuPage() {
                                 className="w-full h-9 pl-8 pr-3 bg-slate-100 border border-slate-200 rounded-xl text-[13px] font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 focus:bg-white transition-all shadow-inner"
                             />
                         </div>
-                        <img src="/an.gif" alt="Mascot 1" className="w-9 h-9 rounded-xl object-cover shrink-0 shadow-sm" />
-                        <img src="/an.gif" alt="Mascot 2" className="w-9 h-9 rounded-xl object-cover shrink-0 shadow-sm" />
+                        <div className="flex items-center gap-1 shrink-0">
+                            <img src="/run.gif" alt="Mascot 1" className="w-12 h-12 rounded-xl object-cover shrink-0 shadow-sm scale-110" />
+                            <img src="/book.gif" alt="Mascot 2" className="w-12 h-12 rounded-xl object-cover shrink-0 shadow-sm scale-110" />
+                        </div>
                     </div>
                 </div>
             </div>
