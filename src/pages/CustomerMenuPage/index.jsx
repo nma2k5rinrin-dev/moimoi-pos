@@ -221,7 +221,7 @@ export default function CustomerMenuPage() {
                             />
                         </div>
                         <div className="flex items-center shrink-0">
-                            <img src="/run.gif" alt="Mascot 1" className="w-12 h-12 rounded-xl object-cover shrink-0 shadow-sm scale-110" />
+                            <img src="/run.gif" alt="Mascot 1" className="w-12 h-12 object-contain shrink-0 drop-shadow-sm scale-110" />
                         </div>
                     </div>
                 </div>

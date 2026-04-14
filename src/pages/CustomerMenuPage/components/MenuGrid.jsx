@@ -27,11 +27,10 @@ export default function MenuGrid({ products, categories, cart, searchQuery, onAd
             <div className="w-[85px] bg-white border-r border-slate-200/60 overflow-y-auto no-scrollbar pb-32 flex flex-col items-center">
                 <button
                     onClick={() => setSelectedCategory('all')}
-                    className={`w-full py-4 px-2 flex flex-col items-center justify-center gap-1 transition-all ${
-                        selectedCategory === 'all'
-                            ? 'bg-emerald-50/50 text-emerald-600 font-bold border-l-4 border-emerald-500'
-                            : 'text-slate-500 font-medium hover:bg-slate-50 border-l-4 border-transparent'
-                    }`}
+                    className={`w-full py-4 px-2 flex flex-col items-center justify-center gap-1 transition-all ${selectedCategory === 'all'
+                        ? 'bg-emerald-50/50 text-emerald-600 font-bold border-l-4 border-emerald-500'
+                        : 'text-slate-500 font-medium hover:bg-slate-50 border-l-4 border-transparent'
+                        }`}
                 >
                     <span className="text-[13px] text-center leading-tight">Tất cả</span>
                 </button>
@@ -39,11 +38,10 @@ export default function MenuGrid({ products, categories, cart, searchQuery, onAd
                     <button
                         key={c.id}
                         onClick={() => setSelectedCategory(c.id)}
-                        className={`w-full py-4 px-2 flex flex-col items-center justify-center gap-1 transition-all ${
-                            selectedCategory === c.id
-                                ? 'bg-emerald-50/50 text-emerald-600 font-bold border-l-4 border-emerald-500'
-                                : 'text-slate-500 font-medium hover:bg-slate-50 border-l-4 border-transparent'
-                        }`}
+                        className={`w-full py-4 px-2 flex flex-col items-center justify-center gap-1 transition-all ${selectedCategory === c.id
+                            ? 'bg-emerald-50/50 text-emerald-600 font-bold border-l-4 border-emerald-500'
+                            : 'text-slate-500 font-medium hover:bg-slate-50 border-l-4 border-transparent'
+                            }`}
                     >
                         <span className="text-[13px] text-center leading-tight">{c.name}</span>
                     </button>
@@ -141,10 +139,10 @@ export default function MenuGrid({ products, categories, cart, searchQuery, onAd
             {/* Floating Mascot Button */}
             <button
                 onClick={() => setSelectedCategory('all')}
-                className="fixed bottom-24 right-5 z-[80] w-[60px] h-[60px] bg-white/90 backdrop-blur-md rounded-2xl shadow-xl shadow-emerald-500/10 border-2 border-emerald-100 overflow-hidden transition-all hover:scale-105 active:scale-95 flex items-center justify-center p-0.5"
+                className="fixed bottom-0 right-5 z-[80] w-[120px] h-[120px] transition-all hover:scale-105 active:scale-95 flex items-center justify-center drop-shadow-xl"
                 title="Xem tất cả món"
             >
-                <img src="/book.gif" alt="Xem tất cả" className="w-full h-full object-cover scale-110" />
+                <img src="/book.gif" alt="Xem tất cả" className="w-full h-full object-contain" />
             </button>
         </div>
     );
