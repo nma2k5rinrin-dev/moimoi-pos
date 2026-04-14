@@ -220,9 +220,8 @@ export default function CustomerMenuPage() {
                                 className="w-full h-9 pl-8 pr-3 bg-slate-100 border border-slate-200 rounded-xl text-[13px] font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 focus:bg-white transition-all shadow-inner"
                             />
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center shrink-0">
                             <img src="/run.gif" alt="Mascot 1" className="w-12 h-12 rounded-xl object-cover shrink-0 shadow-sm scale-110" />
-                            <img src="/book.gif" alt="Mascot 2" className="w-12 h-12 rounded-xl object-cover shrink-0 shadow-sm scale-110" />
                         </div>
                     </div>
                 </div>

@@ -137,6 +137,15 @@ export default function MenuGrid({ products, categories, cart, searchQuery, onAd
                     </div>
                 )}
             </div>
+
+            {/* Floating Mascot Button */}
+            <button
+                onClick={() => setSelectedCategory('all')}
+                className="fixed bottom-24 right-5 z-[80] w-[60px] h-[60px] bg-white/90 backdrop-blur-md rounded-2xl shadow-xl shadow-emerald-500/10 border-2 border-emerald-100 overflow-hidden transition-all hover:scale-105 active:scale-95 flex items-center justify-center p-0.5"
+                title="Xem tất cả món"
+            >
+                <img src="/book.gif" alt="Xem tất cả" className="w-full h-full object-cover scale-110" />
+            </button>
         </div>
     );
 }
