@@ -24,26 +24,26 @@ export default function MenuGrid({ products, categories, cart, searchQuery, onAd
     return (
         <div className="flex flex-row flex-1 min-h-0 bg-slate-50">
             {/* Left Category Sidebar */}
-            <div className="w-[85px] bg-white border-r border-slate-200/60 overflow-y-auto no-scrollbar pb-32 flex flex-col items-center">
+            <div className="w-[72px] shrink-0 bg-white border-r border-slate-200/60 overflow-y-auto no-scrollbar pb-32 flex flex-col items-center">
                 <button
                     onClick={() => setSelectedCategory('all')}
-                    className={`w-full py-4 px-2 flex flex-col items-center justify-center gap-1 transition-all ${selectedCategory === 'all'
+                    className={`w-full py-3 px-1 flex flex-col items-center justify-center gap-1 transition-all ${selectedCategory === 'all'
                         ? 'bg-emerald-50/50 text-emerald-600 font-bold border-l-4 border-emerald-500'
                         : 'text-slate-500 font-medium hover:bg-slate-50 border-l-4 border-transparent'
                         }`}
                 >
-                    <span className="text-[13px] text-center leading-tight">Tất cả</span>
+                    <span className="text-xs text-center leading-tight">Tất cả</span>
                 </button>
                 {categories.map(c => (
                     <button
                         key={c.id}
                         onClick={() => setSelectedCategory(c.id)}
-                        className={`w-full py-4 px-2 flex flex-col items-center justify-center gap-1 transition-all ${selectedCategory === c.id
+                        className={`w-full py-3 px-1 flex flex-col items-center justify-center gap-1 transition-all ${selectedCategory === c.id
                             ? 'bg-emerald-50/50 text-emerald-600 font-bold border-l-4 border-emerald-500'
                             : 'text-slate-500 font-medium hover:bg-slate-50 border-l-4 border-transparent'
                             }`}
                     >
-                        <span className="text-[13px] text-center leading-tight">{c.name}</span>
+                        <span className="text-xs text-center leading-tight">{c.name}</span>
                     </button>
                 ))}
             </div>
