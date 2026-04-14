@@ -220,7 +220,8 @@ export default function CustomerMenuPage() {
                                 className="w-full h-9 pl-8 pr-3 bg-slate-100 border border-slate-200 rounded-xl text-[13px] font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 focus:bg-white transition-all shadow-inner"
                             />
                         </div>
-                        <img src="/an.gif" alt="Mascot" className="w-9 h-9 rounded-xl object-cover shrink-0 shadow-sm" />
+                        <img src="/an.gif" alt="Mascot 1" className="w-9 h-9 rounded-xl object-cover shrink-0 shadow-sm" />
+                        <img src="/an.gif" alt="Mascot 2" className="w-9 h-9 rounded-xl object-cover shrink-0 shadow-sm" />
                     </div>
                 </div>
             </div>
