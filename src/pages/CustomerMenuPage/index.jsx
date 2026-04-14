@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { Store as StoreIcon, WifiOff, MapPin } from 'lucide-react';
+import { Store as StoreIcon, WifiOff, MapPin, Search } from 'lucide-react';
 
 import MenuGrid from './components/MenuGrid';
 import CustomerCart from './components/CustomerCart';
@@ -21,6 +21,7 @@ export default function CustomerMenuPage() {
     const [cart, setCart] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [lastOrderTotal, setLastOrderTotal] = useState(0);
+    const [searchQuery, setSearchQuery] = useState('');
 
     // ── Load Store Data ───────────────────────────────────
     useEffect(() => {
@@ -186,33 +187,51 @@ export default function CustomerMenuPage() {
         : selectedTable;
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col">
+        <div className="h-[100dvh] bg-slate-50 flex flex-col overflow-hidden">
             {/* Store Header */}
-            <div className="bg-white/90 backdrop-blur-xl border-b border-slate-200/60 sticky top-0 z-50">
-                <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
-                    {storeInfo?.logoUrl ? (
-                        <img src={storeInfo.logoUrl} alt={storeInfo.name} className="w-9 h-9 rounded-xl object-cover border border-slate-200" />
-                    ) : (
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
-                            <StoreIcon className="w-5 h-5 text-white" />
+            <div className="bg-white border-b border-slate-200/60 shrink-0 z-50 shadow-sm relative">
+                <div className="max-w-lg mx-auto px-3 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+                        {storeInfo?.logoUrl ? (
+                            <img src={storeInfo.logoUrl} alt={storeInfo.name} className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0" />
+                        ) : (
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shrink-0 shadow-inner">
+                                <StoreIcon className="w-5 h-5 text-white shrink-0" />
+                            </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                            <h1 className="font-bold text-slate-800 text-[15px] truncate leading-tight">{storeInfo?.name}</h1>
+                            <div className="flex items-center gap-1 text-xs text-emerald-600 font-medium truncate mt-0.5">
+                                <MapPin className="w-3 h-3 shrink-0" />
+                                <span className="truncate">{displayTableName}</span>
+                            </div>
                         </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                        <h1 className="font-bold text-slate-800 text-sm truncate">{storeInfo?.name}</h1>
-                        <div className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
-                            <MapPin className="w-3 h-3" />
-                            <span className="truncate">{displayTableName}</span>
+                    </div>
+                    
+                    {/* Cục Search Bar & GIF */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        <div className="relative w-[130px] sm:w-[170px]">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                placeholder="Tìm món ăn..."
+                                className="w-full h-9 pl-8 pr-3 bg-slate-100 border border-slate-200 rounded-xl text-[13px] font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 focus:bg-white transition-all shadow-inner"
+                            />
                         </div>
+                        <img src="/an.gif" alt="Mascot" className="w-9 h-9 rounded-xl object-cover shrink-0 shadow-sm" />
                     </div>
                 </div>
             </div>
 
             {/* Menu Content */}
-            <div className="flex-1 max-w-lg mx-auto w-full flex flex-col min-h-0">
+            <div className="flex-1 max-w-lg mx-auto w-full flex flex-col min-h-0 bg-white">
                 <MenuGrid
                     products={products}
                     categories={categories}
                     cart={cart}
+                    searchQuery={searchQuery}
                     onAddToCart={addToCart}
                     onUpdateQuantity={updateQuantity}
                     onRemoveFromCart={removeFromCart}
