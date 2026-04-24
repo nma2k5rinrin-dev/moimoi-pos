@@ -46,8 +46,8 @@ export default function CustomerMenuPage() {
 
                 // Fetch categories and products in parallel
                 const [catsRes, prodsRes] = await Promise.all([
-                    supabase.from('categories').select('*').eq('store_id', storeId),
-                    supabase.from('products').select('*').eq('store_id', storeId),
+                    supabase.from('categories_public').select('*').eq('store_id', storeId),
+                    supabase.from('products_public').select('*').eq('store_id', storeId),
                 ]);
 
                 setCategories((catsRes.data || []).map(c => ({ id: c.id, name: c.name })));
