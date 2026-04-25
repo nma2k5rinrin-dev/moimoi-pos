@@ -38,6 +38,32 @@ export default function CustomerMenuPage() {
                     setLoading(false);
                     return;
                 }
+
+                // Check store open status
+                const isManualOpen = storeData.is_store_open ?? true;
+                let isTimeOpen = true;
+                if (storeData.open_hours && storeData.open_hours.includes('-')) {
+                    const [startStr, endStr] = storeData.open_hours.split('-').map(s => s.trim());
+                    const now = new Date();
+                    const currentMins = now.getHours() * 60 + now.getMinutes();
+                    const [startH, startM] = startStr.split(':').map(Number);
+                    const startMins = startH * 60 + startM;
+                    const [endH, endM] = endStr.split(':').map(Number);
+                    const endMins = endH * 60 + endM;
+
+                    if (endMins < startMins) {
+                        isTimeOpen = currentMins >= startMins || currentMins <= endMins;
+                    } else {
+                        isTimeOpen = currentMins >= startMins && currentMins <= endMins;
+                    }
+                }
+
+                if (!isManualOpen || !isTimeOpen) {
+                    setError('closed');
+                    setLoading(false);
+                    return;
+                }
+
                 setStoreInfo({
                     name: storeData.name || 'Cửa hàng',
                     phone: storeData.phone || '',
@@ -191,6 +217,16 @@ export default function CustomerMenuPage() {
                             </div>
                             <h2 className="text-xl font-extrabold text-slate-800 mb-2">Không tìm thấy cửa hàng</h2>
                             <p className="text-slate-500 text-sm">Mã QR không hợp lệ hoặc cửa hàng đã ngừng hoạt động.</p>
+                        </>
+                    ) : error === 'closed' ? (
+                        <>
+                            <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-5 border border-slate-200">
+                                <StoreIcon className="w-10 h-10 text-slate-400" />
+                            </div>
+                            <h2 className="text-xl font-extrabold text-slate-800 mb-2">Cửa hàng đang đóng cửa</h2>
+                            <p className="text-slate-500 text-sm leading-relaxed">
+                                Hiện tại ngoài giờ hoạt động hoặc cửa hàng đang tạm nghỉ. Vui lòng quay lại sau nhé!
+                            </p>
                         </>
                     ) : (
                         <>
