@@ -22,6 +22,7 @@ export default function CustomerMenuPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [lastOrderTotal, setLastOrderTotal] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
+    const [existingOrder, setExistingOrder] = useState(null);
 
     // ── Load Store Data ───────────────────────────────────
     useEffect(() => {
@@ -68,6 +69,35 @@ export default function CustomerMenuPage() {
         }
         loadData();
     }, [storeId]);
+
+    // ── Fetch Existing Order for this table ────────────────
+    const fetchExistingOrder = useCallback(async () => {
+        if (!storeId || !selectedTable) return;
+        try {
+            const { data, error: err } = await supabase
+                .from('orders')
+                .select('id, items, total_amount, status, time')
+                .eq('store_id', storeId)
+                .eq('table_name', selectedTable)
+                .eq('payment_status', 'unpaid')
+                .in('status', ['pending', 'processing'])
+                .is('deleted_at', null)
+                .order('time', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            if (!err && data) {
+                setExistingOrder(data);
+            } else {
+                setExistingOrder(null);
+            }
+        } catch (e) {
+            console.error('[CustomerMenuPage] fetchExistingOrder error:', e);
+        }
+    }, [storeId, selectedTable]);
+
+    useEffect(() => {
+        if (!loading && !error) fetchExistingOrder();
+    }, [loading, error, fetchExistingOrder]);
 
     // ── Cart Actions ──────────────────────────────────────
     const addToCart = useCallback((product) => {
@@ -126,6 +156,8 @@ export default function CustomerMenuPage() {
 
             setLastOrderTotal(totalAmount);
             setCart([]);
+            // Reload existing order to show newly submitted items
+            await fetchExistingOrder();
             return true;
         } catch (e) {
             console.error('[CustomerMenuPage] submitOrder exception:', e);
@@ -251,6 +283,7 @@ export default function CustomerMenuPage() {
                 onSubmitOrder={submitOrder}
                 isSubmitting={isSubmitting}
                 lastOrderTotal={lastOrderTotal}
+                existingOrder={existingOrder}
             />
         </div>
     );
