@@ -14,6 +14,10 @@ export default function CustomerMenuPage() {
     // ── State ─────────────────────────────────────────────
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [loadingGif] = useState(() => {
+        const gifs = ['/an.gif', '/biu.gif', '/dance-1.gif', '/money-1.gif', '/ok.gif'];
+        return gifs[Math.floor(Math.random() * gifs.length)];
+    });
     const [storeInfo, setStoreInfo] = useState(null);
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -198,7 +202,7 @@ export default function CustomerMenuPage() {
         return (
             <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-orange-50 flex items-center justify-center">
                 <div className="text-center">
-                    <img src="/an.gif" alt="Loading" className="w-28 h-28 mx-auto mb-4 rounded-2xl" />
+                    <img src={loadingGif} alt="Loading" className="w-28 h-28 mx-auto mb-4 rounded-2xl" />
                     <p className="text-slate-500 font-medium text-sm">Đang tải menu...</p>
                 </div>
             </div>
